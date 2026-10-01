@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALIS-HMI — Connexion</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:0;}
+
+  /* theme toggle (top-right) */
+  .login-theme-btn{position:fixed;top:16px;right:16px;z-index:100;}
+
+  .login-wrap{width:440px;position:relative;}
+  .login-wrap::before{content:'';position:absolute;inset:-80px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,180,216,0.05) 0%,transparent 70%);pointer-events:none;}
+
+  .login-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:44px 40px;position:relative;box-shadow:0 0 60px rgba(0,180,216,0.06);transition:background .3s;}
+  .login-box::before{content:'';position:absolute;top:0;left:30px;right:30px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
+
+  .login-logo{text-align:center;margin-bottom:28px;}
+  .login-logo-icon{width:52px;height:52px;display:block;margin:0 auto 12px;}
+  .login-title{font-family:'Rajdhani';font-size:24px;font-weight:700;color:var(--accent);letter-spacing:4px;}
+  .login-sub{font-size:11px;color:var(--text-dim);letter-spacing:1px;margin-top:4px;}
+
+  .login-clock{text-align:center;font-family:'Share Tech Mono';font-size:13px;color:var(--text-dim);margin-bottom:20px;letter-spacing:2px;}
+
+  .login-field{margin-bottom:16px;}
+  .login-field label{display:block;font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;}
+  .login-field select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Exo 2';font-size:13px;padding:11px 14px;border-radius:7px;outline:none;transition:border-color .2s;}
+  .login-field select:focus{border-color:var(--accent);}
+
+  /* password row with keyboard button */
+  .pw-row{display:flex;gap:8px;align-items:stretch;}
+  .pw-row input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono';font-size:15px;padding:11px 14px;border-radius:7px;outline:none;transition:border-color .2s;letter-spacing:3px;}
+  .pw-row input:focus{border-color:var(--accent);}
+  .pw-row input.error{border-color:var(--red);animation:shake .3s;}
+  .pw-kbd-btn{padding:0 14px;background:rgba(0,180,216,0.08);border:1px solid var(--border);border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;color:var(--text-dim);font-family:'Rajdhani';font-size:11px;font-weight:700;letter-spacing:1px;transition:all .2s;white-space:nowrap;}
+  .pw-kbd-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,180,216,0.15);}
+
+  .login-btn{width:100%;padding:13px;background:var(--accent2);border:1px solid var(--accent);border-radius:7px;color:#fff;font-family:'Rajdhani';font-size:16px;font-weight:700;letter-spacing:3px;cursor:pointer;transition:all .2s;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .login-btn:hover{background:var(--accent);transform:translateY(-1px);}
+
+  .login-error{background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.4);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--red);display:none;align-items:center;gap:8px;}
+  .login-error.visible{display:flex;}
+
+  .attempt-dots{display:flex;gap:7px;justify-content:center;margin:14px 0 6px;}
+  .attempt-dot{width:10px;height:10px;border-radius:50%;background:var(--border);transition:background .3s;}
+  .attempt-dot.used{background:var(--red);box-shadow:0 0 6px var(--red);}
+
+  /* lockout */
+  .lockout-box{text-align:center;padding:20px 0;}
+  .lockout-icon{margin-bottom:12px;display:flex;justify-content:center;}
+  .lockout-title{font-family:'Rajdhani';font-size:18px;font-weight:700;color:var(--red);letter-spacing:2px;}
+  .lockout-timer{font-family:'Share Tech Mono';font-size:40px;color:var(--red);margin:16px 0;}
+  .lockout-sub{font-size:11px;color:var(--text-dim);line-height:1.7;}
+
+  .login-hint{font-size:10px;color:var(--text-dim);text-align:center;margin-top:16px;line-height:2;background:rgba(128,128,128,0.05);border:1px solid var(--border);border-radius:5px;padding:8px;}
+  .login-hint span{color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- Theme toggle -->
+<button class="theme-toggle login-theme-btn" onclick="toggleTheme()" title="Changer le thème">
+  <svg class="icon icon-moon icon-accent"><use href="#icon-moon"/></svg>
+  <svg class="icon icon-sun  icon-accent"><use href="#icon-sun"/></svg>
+</button>
+
+<div class="login-wrap">
+  <div class="login-box">
+
+    <div class="login-logo">
+      <svg class="login-logo-icon" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="50" height="50" rx="12" stroke="var(--border)" stroke-width="1.5"/>
+        <rect x="16" y="16" width="20" height="20" rx="3" stroke="var(--accent)" stroke-width="1.8"/>
+        <line x1="20" y1="16" x2="20" y2="10" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="26" y1="16" x2="26" y2="10" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="32" y1="16" x2="32" y2="10" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="20" y1="42" x2="20" y2="36" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="26" y1="42" x2="26" y2="36" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="32" y1="42" x2="32" y2="36" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="16" y1="20" x2="10" y2="20" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="16" y1="26" x2="10" y2="26" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="16" y1="32" x2="10" y2="32" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="42" y1="20" x2="36" y2="20" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="42" y1="26" x2="36" y2="26" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="42" y1="32" x2="36" y2="32" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div class="login-title">SALIS-HMI</div>
+      <div class="login-sub">Machine de test câbles — Authentification</div>
+    </div>
+
+    <div class="login-clock" id="clock">--:--:--</div>
+
+    <!-- LOCKOUT -->
+    <div id="lockoutView" class="lockout-box" style="display:none;">
+      <div class="lockout-icon">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
+      </div>
+      <div class="lockout-title">ACCÈS BLOQUÉ</div>
+      <div class="lockout-timer" id="lockoutTimer">00:30</div>
+      <div class="lockout-sub">Trop de tentatives incorrectes.<br>Veuillez patienter avant de réessayer.</div>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="loginView">
+      <div class="login-error" id="loginError">
+        <svg class="icon icon-sm icon-red"><use href="#icon-xmark"/></svg>
+        <span id="loginErrorText">Mot de passe incorrect</span>
+      </div>
+
+      <div class="login-field">
+        <label>
+          <svg class="icon icon-sm" style="vertical-align:middle;margin-right:4px;"><use href="#icon-user"/></svg>
+          Utilisateur
+        </label>
+        <select id="loginUser"></select>
+      </div>
+
+      <div class="login-field">
+        <label>
+          <svg class="icon icon-sm" style="vertical-align:middle;margin-right:4px;"><use href="#icon-lock"/></svg>
+          Mot de passe
+        </label>
+        <div class="pw-row">
+          <input type="password" id="loginPw" placeholder="••••••••" maxlength="32" autocomplete="off">
+          <button class="pw-kbd-btn" onclick="openLoginKbd()">
+            <svg class="icon icon-sm"><use href="#icon-keyboard"/></svg>
+            CLAVIER
+          </button>
+        </div>
+      </div>
+
+      <div class="attempt-dots" id="attemptDots">
+        <div class="attempt-dot" id="dot0"></div>
+        <div class="attempt-dot" id="dot1"></div>
+        <div class="attempt-dot" id="dot2"></div>
+      </div>
+
+      <button class="login-btn" onclick="doLogin()">
+        <svg class="icon" style="stroke:#fff"><use href="#icon-play"/></svg>
+        CONNEXION
+      </button>
+
+      <div class="login-hint">
+        Opérateur: <span>op1234</span> &nbsp;|&nbsp;
+        Ingénieur: <span>eng5678</span> &nbsp;|&nbsp;
+        Admin: <span>admin9999</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Virtual keyboard overlay -->
+<div class="vkbd-overlay hidden" id="vkbdOverlay"></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/login.js"></script>
+<script>
+  function openLoginKbd() {
+    const inp = document.getElementById('loginPw');
+    /* temporarily make it text so keyboard value is visible */
+    inp.type = 'text';
+    VKbd.open(inp, 'Mot de passe', () => { inp.type = 'password'; });
+  }
+</script>
+</body>
+</html>

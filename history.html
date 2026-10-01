@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALIS-HMI — Historique</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  .page-body    { height:calc(100vh - 56px - 43px - 38px); overflow-y:auto; }
+  .tab-inner    { display:flex; background:var(--bg); border-bottom:1px solid var(--border); }
+  .tab-inner-btn {
+    padding:8px 20px; font-family:'Rajdhani'; font-size:12px; font-weight:700;
+    letter-spacing:2px; color:var(--text-dim); cursor:pointer; border:none;
+    background:none; text-transform:uppercase; border-bottom:2px solid transparent;
+    transition:all .2s; display:inline-flex; align-items:center; gap:6px;
+  }
+  .tab-inner-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .inner-section { display:none; }
+  .inner-section.active { display:block; }
+  .alarm-badge { background:var(--red); color:#fff; border-radius:10px; padding:0 6px; font-size:10px; margin-left:3px; }
+
+  /* ── Stats KPI ── */
+  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; padding:14px 14px 0; }
+  .kpi-card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px; text-align:center; transition:background .3s; }
+  .kpi-val  { font-family:'Rajdhani'; font-size:30px; font-weight:700; color:var(--accent); }
+  .kpi-label{ font-size:9px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+
+  /* ── Test history table ── */
+  .hist-wrap { padding:14px; }
+  .hist-filter { display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap; }
+  .hist-filter-label { font-size:10px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; }
+  .hist-filter-btn {
+    padding:5px 12px; border-radius:5px; font-family:'Rajdhani'; font-size:11px; font-weight:700;
+    letter-spacing:1px; cursor:pointer; border:1px solid var(--border); background:var(--bg);
+    color:var(--text-dim); transition:all .2s;
+  }
+  .hist-filter-btn.active-all    { border-color:var(--accent); color:var(--accent); background:rgba(0,180,216,.1); }
+  .hist-filter-btn.active-ok     { border-color:var(--green);  color:var(--green);  background:rgba(0,230,118,.1); }
+  .hist-filter-btn.active-nok    { border-color:var(--red);    color:var(--red);    background:rgba(255,23,68,.1); }
+  .hist-filter-btn.active-pneumo { border-color:var(--dry);    color:var(--dry);    background:rgba(0,180,216,.08); }
+  .hist-filter-btn.active-hv     { border-color:var(--hv);     color:var(--hv);     background:rgba(255,107,53,.08); }
+
+  .hist-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .hist-table th { font-family:'Rajdhani'; font-size:10px; font-weight:700; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); }
+  .hist-table td { padding:8px 10px; border-bottom:1px solid rgba(30,48,80,.4); font-family:'Share Tech Mono'; font-size:11px; vertical-align:middle; }
+  .hist-table tr:hover td { background:rgba(255,255,255,.02); cursor:pointer; }
+  .badge-ok  { background:rgba(0,230,118,.1); color:var(--green); border:1px solid rgba(0,230,118,.3); padding:2px 8px; border-radius:4px; font-family:'Rajdhani'; font-weight:700; font-size:11px; letter-spacing:1px; }
+  .badge-nok { background:rgba(255,23,68,.1);  color:var(--red);   border:1px solid rgba(255,23,68,.3);  padding:2px 8px; border-radius:4px; font-family:'Rajdhani'; font-weight:700; font-size:11px; letter-spacing:1px; }
+  .badge-na  { background:rgba(90,112,144,.1); color:var(--text-dim); border:1px solid rgba(90,112,144,.3); padding:2px 8px; border-radius:4px; font-family:'Rajdhani'; font-weight:700; font-size:11px; letter-spacing:1px; }
+
+  /* ── Audit ── */
+  .audit-wrap  { padding:14px; }
+  .audit-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .audit-table th { font-family:'Rajdhani'; font-size:10px; font-weight:700; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); }
+  .audit-table td { padding:7px 10px; border-bottom:1px solid rgba(30,48,80,.4); font-family:'Share Tech Mono'; font-size:11px; }
+  .audit-table tr:hover td { background:rgba(255,255,255,.02); }
+  .audit-login  { color:var(--green); }
+  .audit-logout { color:var(--text-dim); }
+  .audit-chpw   { color:var(--orange); }
+  .audit-param  { color:var(--accent); }
+  .audit-fail   { color:var(--red); }
+  .audit-lock   { color:var(--yellow); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="machine-name">
+    <svg class="icon icon-lg icon-accent"><use href="#icon-zap"/></svg>
+    SALIS-HMI
+  </div>
+  <div class="top-info">
+    <div class="top-item"><div class="top-label">ID</div><div class="top-value" id="topUID" style="color:var(--accent);font-weight:700;">—</div></div>
+    <div class="top-item"><div class="top-label">Nom</div><div class="top-value" id="topUser">—</div></div>
+    <div class="top-item"><div class="top-label">Département</div><div class="top-value" id="topDept">—</div></div>
+    <div class="top-item"><div class="top-label">Session</div><div class="top-value" id="sessionTimer">00:00</div></div>
+    <div class="top-item"><div class="top-label">Heure</div><div class="top-value" id="clock">--:--:--</div></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg class="icon icon-moon icon-accent"><use href="#icon-moon"/></svg>
+      <svg class="icon icon-sun  icon-accent"><use href="#icon-sun"/></svg>
+    </button>
+    <div class="role-badge" id="roleBadge" style="display:none;"><div class="role-dot"></div><span id="roleText">—</span></div>
+    <button class="btn-logout" onclick="doLogout()" id="logoutBtn" style="display:none;">
+      <svg class="icon icon-sm"><use href="#icon-power"/></svg> DÉCO
+    </button>
+  </div>
+</div>
+
+<!-- NAVTABS -->
+<nav class="navtabs">
+  <a class="navtab"        href="dashboard.html"><svg class="icon icon-sm"><use href="#icon-dashboard"/></svg> ACCUEIL</a>
+  <a class="navtab"        href="tests.html"><svg class="icon icon-sm"><use href="#icon-test"/></svg> TESTS</a>
+  <a class="navtab active" href="history.html"><svg class="icon icon-sm"><use href="#icon-chart"/></svg> HISTORIQUE</a>
+  <a class="navtab"        href="settings.html"><svg class="icon icon-sm"><use href="#icon-settings"/></svg> PARAMÈTRES</a>
+  <a class="navtab"        href="admin.html" id="tab-admin" style="display:none;"><svg class="icon icon-sm"><use href="#icon-user"/></svg> ADMIN</a>
+  <a class="navtab"        href="history.html#audit"><svg class="icon icon-sm"><use href="#icon-audit"/></svg> JOURNAL</a>
+</nav>
+
+<!-- INNER TABS -->
+<div class="tab-inner">
+  <button class="tab-inner-btn active" onclick="showInner('stats',this)">
+    <svg class="icon icon-sm"><use href="#icon-chart"/></svg> Statistiques
+  </button>
+  <button class="tab-inner-btn" onclick="showInner('tests',this)">
+    <svg class="icon icon-sm"><use href="#icon-test"/></svg> Historique tests
+  </button>
+  <button class="tab-inner-btn" onclick="showInner('alarms',this)">
+    <svg class="icon icon-sm"><use href="#icon-alarm"/></svg> Alarmes
+    <span class="alarm-badge">2</span>
+  </button>
+  <button class="tab-inner-btn" onclick="showInner('audit',this)" id="btnAudit">
+    <svg class="icon icon-sm"><use href="#icon-audit"/></svg> Journal d'audit
+  </button>
+</div>
+
+<div class="page-body">
+
+  <!-- ═══ STATS ═══ -->
+  <div class="inner-section active" id="sec-stats">
+    <div class="kpi-row" id="kpiRow"></div>
+    <div class="stats-charts" style="padding:14px;">
+      <div class="chart-box-full">
+        <div class="chart-title"><svg class="icon icon-sm icon-red"><use href="#icon-chart"/></svg> DÉFAUTS PAR TYPE</div>
+        <canvas id="chartDefects" height="160"></canvas>
+      </div>
+      <div class="chart-box-full">
+        <div class="chart-title"><svg class="icon icon-sm icon-green"><use href="#icon-chart"/></svg> PRODUCTION JOURNALIÈRE</div>
+        <canvas id="chartProd" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TESTS HISTORY ═══ -->
+  <div class="inner-section" id="sec-tests">
+    <div class="hist-wrap">
+      <div class="hist-filter">
+        <span class="hist-filter-label">Filtrer :</span>
+        <button class="hist-filter-btn active-all"    onclick="filterTests('all',this)">Tous</button>
+        <button class="hist-filter-btn"               onclick="filterTests('ok',this)">OK</button>
+        <button class="hist-filter-btn"               onclick="filterTests('nok',this)">NOK</button>
+        <button class="hist-filter-btn"               onclick="filterTests('pneumo',this)">Pneumo</button>
+        <button class="hist-filter-btn"               onclick="filterTests('hv',this)">HV</button>
+        <button class="hist-filter-btn" style="margin-left:auto;background:rgba(255,23,68,.08);border-color:rgba(255,23,68,.3);color:var(--red);" onclick="clearTestHistory()">
+          <svg class="icon icon-sm icon-red"><use href="#icon-trash"/></svg> EFFACER
+        </button>
+      </div>
+      <table class="hist-table">
+        <thead>
+          <tr>
+            <th>Date/Heure</th>
+            <th>Référence</th>
+            <th>Opérateur (ID)</th>
+            <th>Département</th>
+            <th>Pneumo</th>
+            <th>HV</th>
+            <th>Flow max</th>
+            <th>Câbles</th>
+            <th>Verdict</th>
+          </tr>
+        </thead>
+        <tbody id="histTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ ALARMS ═══ -->
+  <div class="inner-section" id="sec-alarms">
+    <div class="alarm-list">
+      <div class="alarm-item crit">
+        <div class="alarm-icon"><svg class="icon icon-hv"><use href="#icon-zap"/></svg></div>
+        <div><div class="alarm-code">ERR-HV-003</div><div class="alarm-title">Surtension courant</div><div class="alarm-solution">→ Vérifier isolation câble, remplacer si nécessaire</div></div>
+        <div class="alarm-time">10:24:12</div>
+      </div>
+      <div class="alarm-item crit">
+        <div class="alarm-icon"><svg class="icon" style="stroke:var(--dry)"><use href="#icon-drop"/></svg></div>
+        <div><div class="alarm-code">ERR-DRY-007</div><div class="alarm-title">Fuite excessive détectée</div><div class="alarm-solution">→ Contrôler étanchéité raccords, vérifier joint câble</div></div>
+        <div class="alarm-time">10:24:14</div>
+      </div>
+      <div class="alarm-item warn">
+        <div class="alarm-icon"><svg class="icon icon-orange"><use href="#icon-lock"/></svg></div>
+        <div><div class="alarm-code">WARN-SEC-001</div><div class="alarm-title">Porte ouverte pendant test</div><div class="alarm-solution">→ Fermer la porte de sécurité avant de relancer</div></div>
+        <div class="alarm-time">09:15:33</div>
+      </div>
+      <div class="alarm-item warn">
+        <div class="alarm-icon"><svg class="icon icon-orange"><use href="#icon-wave"/></svg></div>
+        <div><div class="alarm-code">WARN-FLOW-002</div><div class="alarm-title">Mass Flow dépassement seuil</div><div class="alarm-solution">→ Vérifier étanchéité du câble et des raccords</div></div>
+        <div class="alarm-time">08:47:05</div>
+      </div>
+      <div class="alarm-item info">
+        <div class="alarm-icon"><svg class="icon icon-accent"><use href="#icon-stop"/></svg></div>
+        <div><div class="alarm-code">INFO-SEC-000</div><div class="alarm-title">Arrêt d'urgence activé</div><div class="alarm-solution">→ Déverrouiller bouton d'arrêt, vérifier machine, relancer</div></div>
+        <div class="alarm-time">08:05:00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ AUDIT ═══ -->
+  <div class="inner-section" id="sec-audit">
+    <div id="audit-denied" class="denied-banner" style="display:none;">
+      <svg class="icon" style="stroke:var(--red);vertical-align:middle;margin-right:8px;"><use href="#icon-lock"/></svg>
+      Journal d'audit — Accès réservé au niveau <strong>Admin</strong>.
+    </div>
+    <div id="audit-content" class="audit-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="sec-title" style="border:none;margin:0;padding:0;">
+          <svg class="icon icon-sm"><use href="#icon-audit"/></svg> JOURNAL D'AUDIT
+        </div>
+        <button onclick="clearAuditLog()" style="padding:6px 14px;background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.3);border-radius:4px;color:var(--red);font-family:'Rajdhani';font-size:11px;font-weight:700;cursor:pointer;letter-spacing:1px;display:flex;align-items:center;gap:5px;">
+          <svg class="icon icon-sm icon-red"><use href="#icon-trash"/></svg> EFFACER
+        </button>
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>Horodatage</th>
+            <th>ID</th>
+            <th>Utilisateur</th>
+            <th>Rôle</th>
+            <th>Département</th>
+            <th>Action</th>
+            <th>Détail</th>
+          </tr>
+        </thead>
+        <tbody id="audit-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="autolock-bar"><div class="autolock-progress" id="autolockBar" style="width:100%;"></div></div>
+<div class="toast" id="toast"></div>
+<div class="vkbd-overlay hidden" id="vkbdOverlay"></div>
+
+<script src="../js/api.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  startClock(); startSessionTimer(); renderTopbar();
+  startAutolock(() => { clearSession(); window.location.href = 'login.html'; });
+  const ta = document.getElementById('tab-admin');
+  if(ta) ta.style.display = SESSION.role==='admin'?'inline-flex':'none';
+  buildKPI();
+  drawStatCharts();
+  renderTestHistory('all');
+  if(window.location.hash === '#audit') showInner('audit', document.getElementById('btnAudit'));
+});
+
+function doLogout() {
+  addAudit(SESSION.user, SESSION.role, 'DÉCONNEXION', 'Session fermée', 'audit-logout');
+  stopAutolock(); clearSession(); window.location.href = 'login.html';
+}
+
+/* ══════════════════════════════════════════════════════
+   INNER TAB SWITCH
+══════════════════════════════════════════════════════ */
+function showInner(name, btn) {
+  document.querySelectorAll('.inner-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-inner-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name === 'audit') renderAuditTable();
+  if(name === 'stats') { buildKPI(); drawStatCharts(); }
+  if(name === 'tests') renderTestHistory(currentFilter);
+}
+
+/* ══════════════════════════════════════════════════════
+   KPI
+══════════════════════════════════════════════════════ */
+function buildKPI() {
+  const tests = loadTestHistory();
+  const total = tests.length;
+  const ok    = tests.filter(t=>t.verdict==='OK').length;
+  const nok   = total - ok;
+  const rate  = total > 0 ? ((nok/total)*100).toFixed(1) : '0.0';
+  const avgFlow = total > 0
+    ? (tests.reduce((s,t)=>s+(parseFloat(t.maxFlow)||0),0)/total).toFixed(1)
+    : '0.0';
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-card"><div class="kpi-val">${total}</div><div class="kpi-label">Tests totaux</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--green)">${ok}</div><div class="kpi-label">OK</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--red)">${nok}</div><div class="kpi-label">NOK</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--yellow)">${rate}%</div><div class="kpi-label">Taux défaut</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--green)">${avgFlow}</div><div class="kpi-label">Flow moy. mL/min</div></div>
+  `;
+}
+
+/* ══════════════════════════════════════════════════════
+   TEST HISTORY (localStorage)
+══════════════════════════════════════════════════════ */
+const HIST_KEY = 'hmi_test_history_v1';
+
+function loadTestHistory() {
+  try { const s=localStorage.getItem(HIST_KEY); if(s) return JSON.parse(s); } catch(e){}
+  /* Demo data if empty */
+  return [
+    { ts:'09:42 17/03/2026', ref:'TYPE-A-3C', uid:'OP-1001', op:'MARTIN P.', dept:'production', pneumo:'OK', hv:'OK', maxFlow:'0.8', cables:1, verdict:'OK' },
+    { ts:'09:28 17/03/2026', ref:'TYPE-B-5C', uid:'OP-1002', op:'DUPONT L.', dept:'qualite',    pneumo:'OK', hv:'NOK', maxFlow:'1.2', cables:5, verdict:'NOK' },
+    { ts:'09:15 17/03/2026', ref:'TYPE-A-3C', uid:'OP-2001', op:'CHEN R.',   dept:'technique',  pneumo:'OK', hv:'OK', maxFlow:'0.5', cables:1, verdict:'OK' },
+    { ts:'08:58 17/03/2026', ref:'TYPE-C-8C', uid:'OP-1001', op:'MARTIN P.', dept:'production', pneumo:'OK', hv:'OK', maxFlow:'0.9', cables:3, verdict:'OK' },
+    { ts:'08:30 17/03/2026', ref:'TYPE-B-5C', uid:'OP-0001', op:'ADMIN',     dept:'technique',  pneumo:'NOK',hv:'OK', maxFlow:'3.5', cables:5, verdict:'NOK' },
+  ];
+}
+
+function saveTestHistory(data) {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(data.slice(0,500))); } catch(e){}
+}
+
+let currentFilter = 'all';
+
+function filterTests(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.hist-filter-btn').forEach(b => {
+    b.className = 'hist-filter-btn';
+  });
+  btn.classList.add('active-'+filter);
+  renderTestHistory(filter);
+}
+
+function renderTestHistory(filter) {
+  let tests = loadTestHistory();
+  if(filter==='ok')     tests = tests.filter(t=>t.verdict==='OK');
+  if(filter==='nok')    tests = tests.filter(t=>t.verdict==='NOK');
+  if(filter==='pneumo') tests = tests.filter(t=>t.pneumo==='NOK');
+  if(filter==='hv')     tests = tests.filter(t=>t.hv==='NOK');
+
+  const deptMap = { production:'Production', qualite:'Qualité', technique:'Technique' };
+  const tbody = document.getElementById('histTbody');
+
+  if(tests.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-dim);">Aucun test enregistré</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = tests.map(t => `
+    <tr onclick="window.location.href='tests.html'">
+      <td>${t.ts}</td>
+      <td style="color:var(--accent);font-weight:700;">${t.ref}</td>
+      <td>${t.op} <span style="color:var(--accent);font-size:10px;">(${t.uid})</span></td>
+      <td style="color:var(--text-dim);">${deptMap[t.dept]||t.dept||'—'}</td>
+      <td>${t.pneumo==='OK'?'<span class="badge-ok">OK</span>':t.pneumo==='NOK'?'<span class="badge-nok">NOK</span>':'<span class="badge-na">N/A</span>'}</td>
+      <td>${t.hv==='OK'    ?'<span class="badge-ok">OK</span>':t.hv==='NOK'    ?'<span class="badge-nok">NOK</span>':'<span class="badge-na">N/A</span>'}</td>
+      <td style="color:var(--green);">${t.maxFlow||'—'} mL</td>
+      <td>${t.cables||1}</td>
+      <td>${t.verdict==='OK'?'<span class="badge-ok">ACCEPTÉ</span>':'<span class="badge-nok">REJETÉ</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+function clearTestHistory() {
+  if(!confirm('Effacer tout l\'historique des tests ?')) return;
+  saveTestHistory([]);
+  renderTestHistory('all');
+  buildKPI();
+  showToast('Historique effacé', 'warn');
+}
+
+/* ══════════════════════════════════════════════════════
+   AUDIT
+══════════════════════════════════════════════════════ */
+function renderAuditTable() {
+  const denied  = document.getElementById('audit-denied');
+  const content = document.getElementById('audit-content');
+  if(!can('canViewAudit')) { denied.style.display='block'; content.style.display='none'; return; }
+  denied.style.display='none'; content.style.display='block';
+  const deptMap = { production:'Production', qualite:'Qualité', technique:'Technique' };
+  const tbody = document.getElementById('audit-tbody');
+  if(auditLog.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-dim);">Journal vide</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = auditLog.slice(0,100).map(e => {
+    const u = Object.values(USERS).find(u=>u.name===e.user);
+    const dept = u ? deptMap[u.dept]||'—' : '—';
+    const uid  = u ? (u.uid||'—') : '—';
+    return `<tr>
+      <td>${e.ts}</td>
+      <td style="color:var(--accent);font-weight:700;">${uid}</td>
+      <td>${e.user}</td>
+      <td style="color:var(--text-dim)">${e.role}</td>
+      <td style="color:var(--text-dim)">${dept}</td>
+      <td class="${e.cls}">${e.action}</td>
+      <td>${e.detail}</td>
+    </tr>`;
+  }).join('');
+}
+
+function clearAuditLog() {
+  if(!confirm('Effacer tout le journal d\'audit ?')) return;
+  auditLog.length = 0;
+  saveAuditStore(auditLog);
+  renderAuditTable();
+  showToast('Journal effacé', 'warn');
+}
+
+/* ══════════════════════════════════════════════════════
+   CHARTS
+══════════════════════════════════════════════════════ */
+function makeChart(id, datasets, labels) {
+  const canvas=document.getElementById(id); if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.offsetWidth,H=canvas.offsetHeight; canvas.width=W; canvas.height=H;
+  const PAD={t:10,r:10,b:30,l:45}; const cw=W-PAD.l-PAD.r,ch=H-PAD.t-PAD.b;
+  let allY=[]; datasets.forEach(d=>d.data.forEach(v=>allY.push(v)));
+  let minY=Math.min(...allY),maxY=Math.max(...allY);
+  let range=maxY-minY||1; minY-=range*.1; maxY+=range*.1;
+  ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(30,48,80,.6)'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=PAD.t+ch-(i/4)*ch;
+    ctx.beginPath();ctx.moveTo(PAD.l,y);ctx.lineTo(PAD.l+cw,y);ctx.stroke();
+    ctx.fillStyle='rgba(90,112,144,.8)';ctx.font='9px Share Tech Mono';ctx.textAlign='right';
+    ctx.fillText((minY+(i/4)*(maxY-minY)).toFixed(0),PAD.l-4,y+3);
+  }
+  for(let i=0;i<labels.length;i+=Math.ceil(labels.length/6)){
+    const x=PAD.l+(i/(labels.length-1))*cw;
+    ctx.beginPath();ctx.moveTo(x,PAD.t);ctx.lineTo(x,PAD.t+ch);ctx.stroke();
+    ctx.fillStyle='rgba(90,112,144,.8)';ctx.font='9px Share Tech Mono';ctx.textAlign='center';
+    ctx.fillText(labels[i],x,PAD.t+ch+16);
+  }
+  datasets.forEach(ds=>{
+    ctx.shadowColor=ds.color;ctx.shadowBlur=8;ctx.strokeStyle=ds.color;ctx.lineWidth=2;
+    ctx.beginPath();
+    ds.data.forEach((v,i)=>{
+      const x=PAD.l+(i/(ds.data.length-1))*cw;
+      const y=PAD.t+ch-((v-minY)/(maxY-minY))*ch;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();ctx.shadowBlur=0;
+    const grad=ctx.createLinearGradient(0,PAD.t,0,PAD.t+ch);
+    grad.addColorStop(0,ds.color+'33');grad.addColorStop(1,'transparent');
+    ctx.fillStyle=grad;ctx.beginPath();
+    ds.data.forEach((v,i)=>{
+      const x=PAD.l+(i/(ds.data.length-1))*cw;
+      const y=PAD.t+ch-((v-minY)/(maxY-minY))*ch;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.lineTo(PAD.l+cw,PAD.t+ch);ctx.lineTo(PAD.l,PAD.t+ch);ctx.closePath();ctx.fill();ctx.shadowBlur=0;
+  });
+}
+
+function drawStatCharts() {
+  /* Bar chart defects */
+  const c1=document.getElementById('chartDefects'); if(!c1) return;
+  const ctx1=c1.getContext('2d'); const W1=c1.offsetWidth,H1=c1.offsetHeight;
+  c1.width=W1; c1.height=H1; ctx1.fillStyle='#0d1117'; ctx1.fillRect(0,0,W1,H1);
+  const cats=['HV Courant','HV Tension','Fuite Pneumo','Mass Flow','Autre'];
+  const vals=[32,18,24,12,4];
+  const maxV=Math.max(...vals); const pad={t:10,r:10,b:30,l:40};
+  const bW=((W1-pad.l-pad.r)/cats.length)*.6;
+  cats.forEach((c,i)=>{
+    const x=pad.l+(i+.5)*(W1-pad.l-pad.r)/cats.length-bW/2;
+    const bH=(H1-pad.t-pad.b)*vals[i]/maxV; const y=pad.t+(H1-pad.t-pad.b)-bH;
+    const g=ctx1.createLinearGradient(0,y,0,y+bH);
+    g.addColorStop(0,'#ff1744'); g.addColorStop(1,'#ff174433');
+    ctx1.fillStyle=g; ctx1.fillRect(x,y,bW,bH);
+    ctx1.fillStyle='rgba(90,112,144,.9)'; ctx1.font='9px Share Tech Mono'; ctx1.textAlign='center';
+    ctx1.fillText(c,x+bW/2,H1-8); ctx1.fillStyle='#ff6b35'; ctx1.fillText(vals[i],x+bW/2,y-3);
+  });
+  /* Line chart production */
+  makeChart('chartProd',
+    [{data:[120,138,145,132,152,148,160,155,142,165,158,170],color:'#00e676'}],
+    ['L','M','M','J','V','S','D','L','M','M','J','V']);
+}
+</script>
+</body>
+</html>

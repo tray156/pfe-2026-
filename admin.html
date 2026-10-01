@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALIS-HMI — Administration</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  .page-body { height:calc(100vh - 56px - 43px); overflow-y:auto; padding:20px; }
+
+  /* ── User table ── */
+  .admin-grid { display:grid; grid-template-columns:1fr 380px; gap:16px; max-width:1200px; margin:0 auto; }
+  .admin-card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px; }
+  .admin-card-title { font-family:'Rajdhani'; font-size:14px; font-weight:700; letter-spacing:2px; color:var(--accent); text-transform:uppercase; margin-bottom:16px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border); padding-bottom:10px; }
+
+  .user-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .user-table th { font-family:'Rajdhani'; font-size:10px; font-weight:700; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; }
+  .user-table td { padding:10px 10px; border-bottom:1px solid rgba(30,48,80,.4); vertical-align:middle; }
+  .user-table tr:hover td { background:rgba(255,255,255,.02); }
+
+  .uid-badge { font-family:'Share Tech Mono'; font-size:13px; font-weight:700; color:var(--accent); background:rgba(0,180,216,.1); padding:3px 8px; border-radius:4px; }
+  .dept-badge { font-size:10px; font-family:'Rajdhani'; font-weight:700; letter-spacing:1px; padding:3px 8px; border-radius:4px; }
+  .dept-technique  { background:rgba(0,180,216,.1);  color:var(--accent); }
+  .dept-qualite    { background:rgba(0,230,118,.1);  color:var(--green); }
+  .dept-production { background:rgba(255,152,0,.1);  color:var(--orange); }
+  .role-tag { font-size:10px; font-family:'Rajdhani'; font-weight:700; letter-spacing:1px; padding:3px 8px; border-radius:4px; }
+  .role-tag.operator { background:rgba(0,180,216,.12); color:var(--role-op); }
+  .role-tag.engineer { background:rgba(255,152,0,.12); color:var(--role-eng); }
+  .role-tag.admin    { background:rgba(224,64,251,.12); color:var(--role-admin); }
+
+  .action-btns { display:flex; gap:6px; }
+  .btn-edit { padding:4px 10px; background:rgba(0,180,216,.1); border:1px solid var(--accent2); border-radius:4px; color:var(--accent); font-family:'Rajdhani'; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:1px; }
+  .btn-del  { padding:4px 10px; background:rgba(255,23,68,.1); border:1px solid rgba(255,23,68,.3); border-radius:4px; color:var(--red); font-family:'Rajdhani'; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:1px; }
+  .btn-edit:hover { background:rgba(0,180,216,.2); }
+  .btn-del:hover  { background:rgba(255,23,68,.2); }
+
+  /* ── Form ── */
+  .form-field { margin-bottom:14px; }
+  .form-field label { display:block; font-size:10px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+  .form-input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'Share Tech Mono'; font-size:13px; padding:9px 12px; border-radius:5px; outline:none; transition:border-color .2s; }
+  .form-input:focus { border-color:var(--accent); }
+  .form-select { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'Exo 2'; font-size:13px; padding:9px 12px; border-radius:5px; outline:none; transition:border-color .2s; }
+  .form-select:focus { border-color:var(--accent); }
+
+  .btn-save { width:100%; padding:11px; background:rgba(0,230,118,.1); border:1px solid var(--green); border-radius:6px; color:var(--green); font-family:'Rajdhani'; font-size:14px; font-weight:700; letter-spacing:2px; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px; }
+  .btn-save:hover { background:rgba(0,230,118,.2); }
+  .btn-cancel-form { width:100%; padding:9px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; color:var(--text-dim); font-family:'Rajdhani'; font-size:13px; font-weight:700; letter-spacing:2px; cursor:pointer; margin-top:6px; }
+
+  /* generated ID display */
+  .gen-id { display:flex; align-items:center; gap:8px; background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:8px 12px; margin-top:6px; }
+  .gen-id-val { font-family:'Share Tech Mono'; font-size:18px; color:var(--accent); letter-spacing:3px; flex:1; }
+  .gen-id-btn { padding:5px 10px; background:rgba(0,180,216,.1); border:1px solid var(--accent2); border-radius:4px; color:var(--accent); font-family:'Rajdhani'; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+
+  /* stats bar */
+  .stats-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; max-width:1200px; margin-left:auto; margin-right:auto; }
+  .stat-mini { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px 16px; display:flex; align-items:center; gap:12px; }
+  .stat-mini-val { font-family:'Rajdhani'; font-size:24px; font-weight:700; color:var(--accent); }
+  .stat-mini-label { font-size:10px; color:var(--text-dim); letter-spacing:1px; text-transform:uppercase; line-height:1.4; }
+
+  .form-msg { font-size:11px; margin-top:8px; min-height:14px; }
+  .divider { border:none; border-top:1px solid var(--border); margin:14px 0; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="machine-name">
+    <svg class="icon icon-lg icon-accent"><use href="#icon-zap"/></svg>
+    SALIS-HMI
+  </div>
+  <div class="top-info">
+    <div class="top-item"><div class="top-label">Opérateur</div><div class="top-value" id="topUser">—</div></div>
+    <div class="top-item"><div class="top-label">Session</div><div class="top-value" id="sessionTimer">00:00</div></div>
+    <div class="top-item"><div class="top-label">Heure</div><div class="top-value" id="clock">--:--:--</div></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg class="icon icon-moon icon-accent"><use href="#icon-moon"/></svg>
+      <svg class="icon icon-sun  icon-accent"><use href="#icon-sun"/></svg>
+    </button>
+    <div class="role-badge admin" id="roleBadge" style="display:none;"><div class="role-dot"></div><span id="roleText">ADMIN</span></div>
+    <button class="btn-logout" onclick="doLogout()" id="logoutBtn" style="display:none;">
+      <svg class="icon icon-sm"><use href="#icon-power"/></svg> DÉCO
+    </button>
+  </div>
+</div>
+
+<!-- NAVTABS -->
+<nav class="navtabs">
+  <a class="navtab" href="dashboard.html"><svg class="icon icon-sm"><use href="#icon-dashboard"/></svg> ACCUEIL</a>
+  <a class="navtab" href="tests.html"><svg class="icon icon-sm"><use href="#icon-test"/></svg> TESTS</a>
+  <a class="navtab" href="history.html"><svg class="icon icon-sm"><use href="#icon-chart"/></svg> HISTORIQUE</a>
+  <a class="navtab" href="settings.html"><svg class="icon icon-sm"><use href="#icon-settings"/></svg> PARAMÈTRES</a>
+  <a class="navtab active" href="admin.html"><svg class="icon icon-sm"><use href="#icon-user"/></svg> ADMIN</a>
+  <a class="navtab" href="history.html#audit"><svg class="icon icon-sm"><use href="#icon-audit"/></svg> JOURNAL</a>
+</nav>
+
+<!-- PAGE -->
+<div class="page-body">
+
+  <!-- KPI bar -->
+  <div class="stats-bar" id="kpiBar"></div>
+
+  <div class="admin-grid">
+
+    <!-- LEFT — User list -->
+    <div class="admin-card">
+      <div class="admin-card-title">
+        <svg class="icon icon-sm"><use href="#icon-user"/></svg>
+        GESTION DES UTILISATEURS
+      </div>
+      <table class="user-table" id="userTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nom</th>
+            <th>Rôle</th>
+            <th>Département</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="userTbody"></tbody>
+      </table>
+    </div>
+
+    <!-- RIGHT — Add / Edit form -->
+    <div class="admin-card">
+      <div class="admin-card-title" id="formTitle">
+        <svg class="icon icon-sm"><use href="#icon-plus"/></svg>
+        NOUVEL UTILISATEUR
+      </div>
+
+      <!-- Auto-generated ID -->
+      <div class="form-field">
+        <label>ID Opérateur (généré automatiquement)</label>
+        <div class="gen-id">
+          <span class="gen-id-val" id="genIdDisplay">—</span>
+          <button class="gen-id-btn" onclick="generateId()">
+            <svg class="icon icon-sm"><use href="#icon-plus"/></svg> NOUVEAU
+          </button>
+        </div>
+        <input type="hidden" id="formId">
+      </div>
+
+      <hr class="divider">
+
+      <div class="form-field">
+        <label>Nom complet</label>
+        <input class="form-input" id="formName" type="text" placeholder="Ex: DUPONT Jean" autocomplete="off">
+      </div>
+
+      <div class="form-field">
+        <label>Mot de passe</label>
+        <div style="display:flex;gap:6px;">
+          <input class="form-input" id="formPw" type="password" placeholder="••••••••" style="flex:1;" autocomplete="off">
+          <button class="gen-id-btn" onclick="generatePw()" style="white-space:nowrap;">GÉNÉRER</button>
+        </div>
+        <div id="pwStrength" style="height:3px;border-radius:2px;margin-top:5px;background:var(--border);transition:all .3s;"></div>
+      </div>
+
+      <div class="form-field">
+        <label>Rôle</label>
+        <select class="form-select" id="formRole">
+          <option value="operator">Opérateur</option>
+          <option value="engineer">Ingénieur</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label>Département</label>
+        <select class="form-select" id="formDept">
+          <option value="production">Production</option>
+          <option value="qualite">Qualité</option>
+          <option value="technique">Technique</option>
+        </select>
+      </div>
+
+      <div class="form-msg" id="formMsg"></div>
+
+      <button class="btn-save" onclick="saveUser()">
+        <svg class="icon icon-sm icon-green"><use href="#icon-save"/></svg>
+        ENREGISTRER
+      </button>
+      <button class="btn-cancel-form" onclick="resetForm()" id="btnCancelForm" style="display:none;">
+        ANNULER MODIFICATION
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<div class="autolock-bar"><div class="autolock-progress" id="autolockBar" style="width:100%;"></div></div>
+<div class="toast" id="toast"></div>
+
+<!-- Virtual keyboard overlay -->
+<div class="vkbd-overlay hidden" id="vkbdOverlay"></div>
+
+<script src="../js/api.js"></script>
+<script>
+/* ── Guard: Admin only ───────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  if (SESSION.role !== 'admin') {
+    showToast('Accès réservé à l\'Admin', 'error');
+    setTimeout(() => window.location.href = 'dashboard.html', 1500);
+    return;
+  }
+  startClock(); startSessionTimer(); renderTopbar();
+  startAutolock(() => { clearSession(); window.location.href = 'login.html'; });
+  generateId();
+  renderUsers();
+  renderKPI();
+});
+
+function doLogout() {
+  addAudit(SESSION.user, SESSION.role, 'DÉCONNEXION', 'Session fermée', 'audit-logout');
+  stopAutolock(); clearSession(); window.location.href = 'login.html';
+}
+
+/* ── Render KPI ──────────────────────────────────────── */
+function renderKPI() {
+  const users = Object.values(USERS);
+  const total = users.length;
+  const ops   = users.filter(u => u.role === 'operator').length;
+  const engs  = users.filter(u => u.role === 'engineer').length;
+  const admins= users.filter(u => u.role === 'admin').length;
+  document.getElementById('kpiBar').innerHTML = `
+    <div class="stat-mini">
+      <svg class="icon icon-lg icon-accent"><use href="#icon-user"/></svg>
+      <div><div class="stat-mini-val">${total}</div><div class="stat-mini-label">Total utilisateurs</div></div>
+    </div>
+    <div class="stat-mini">
+      <svg class="icon icon-lg" style="stroke:var(--role-op)"><use href="#icon-user"/></svg>
+      <div><div class="stat-mini-val" style="color:var(--role-op)">${ops}</div><div class="stat-mini-label">Opérateurs</div></div>
+    </div>
+    <div class="stat-mini">
+      <svg class="icon icon-lg" style="stroke:var(--role-eng)"><use href="#icon-wrench"/></svg>
+      <div><div class="stat-mini-val" style="color:var(--role-eng)">${engs}</div><div class="stat-mini-label">Ingénieurs</div></div>
+    </div>
+    <div class="stat-mini">
+      <svg class="icon icon-lg" style="stroke:var(--role-admin)"><use href="#icon-settings"/></svg>
+      <div><div class="stat-mini-val" style="color:var(--role-admin)">${admins}</div><div class="stat-mini-label">Admins</div></div>
+    </div>
+  `;
+}
+
+/* ── Render user table ───────────────────────────────── */
+function renderUsers() {
+  const tbody = document.getElementById('userTbody');
+  const users = USERS;
+  tbody.innerHTML = Object.entries(users).map(([key, u]) => `
+    <tr>
+      <td><span class="uid-badge">${u.uid || key}</span></td>
+      <td style="font-weight:600;color:var(--text)">${u.name}</td>
+      <td><span class="role-tag ${u.role}">${u.displayRole}</span></td>
+      <td><span class="dept-badge dept-${u.dept||'production'}">${deptLabel(u.dept)}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-edit" onclick="editUser('${key}')">
+            <svg class="icon icon-sm"><use href="#icon-wrench"/></svg> MODIFIER
+          </button>
+          ${key !== 'admin' ? `<button class="btn-del" onclick="deleteUser('${key}')">
+            <svg class="icon icon-sm"><use href="#icon-trash"/></svg> SUPPR
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  renderKPI();
+}
+
+function deptLabel(dept) {
+  const map = { production:'Production', qualite:'Qualité', technique:'Technique' };
+  return map[dept] || 'Production';
+}
+
+/* ── Generate ID ─────────────────────────────────────── */
+function generateId() {
+  const prefix = 'OP';
+  const num = String(Math.floor(1000 + Math.random() * 9000));
+  const id = prefix + '-' + num;
+  document.getElementById('genIdDisplay').textContent = id;
+  document.getElementById('formId').value = id;
+}
+
+/* ── Generate Password ───────────────────────────────── */
+function generatePw() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
+  let pw = '';
+  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  const inp = document.getElementById('formPw');
+  inp.type = 'text';
+  inp.value = pw;
+  updatePwStrength(pw);
+  setTimeout(() => inp.type = 'password', 3000);
+  showToast('Mot de passe généré — affiché 3 secondes', 'ok');
+}
+
+function updatePwStrength(pw) {
+  const bar = document.getElementById('pwStrength');
+  if (pw.length < 6) { bar.style.background='var(--red)'; bar.style.width='30%'; return; }
+  if (pw.length >= 10 && /[A-Z]/.test(pw) && /[0-9]/.test(pw)) { bar.style.background='var(--green)'; bar.style.width='100%'; return; }
+  bar.style.background='var(--yellow)'; bar.style.width='60%';
+}
+
+/* ── Save user ───────────────────────────────────────── */
+let editingKey = null;
+
+function saveUser() {
+  const uid   = document.getElementById('formId').value.trim();
+  const name  = document.getElementById('formName').value.trim();
+  const pw    = document.getElementById('formPw').value;
+  const role  = document.getElementById('formRole').value;
+  const dept  = document.getElementById('formDept').value;
+  const msg   = document.getElementById('formMsg');
+
+  if (!name) { msg.textContent='❌ Nom requis.'; msg.style.color='var(--red)'; return; }
+  if (!editingKey && (!pw || pw.length < 6)) { msg.textContent='❌ Mot de passe min. 6 caractères.'; msg.style.color='var(--red)'; return; }
+
+  const roleLabels = { operator:'OPÉRATEUR', engineer:'INGÉNIEUR', admin:'ADMIN' };
+  const userKey = editingKey || ('user_' + Date.now());
+
+  if (editingKey) {
+    // Editing existing user
+    USERS[editingKey].name        = name;
+    USERS[editingKey].displayRole = roleLabels[role];
+    USERS[editingKey].role        = role;
+    USERS[editingKey].dept        = dept;
+    USERS[editingKey].uid         = uid;
+    if (pw) USERS[editingKey].pwHash = hashSimple(pw);
+  } else {
+    // New user
+    USERS[userKey] = {
+      uid, name, role,
+      displayRole: roleLabels[role],
+      dept,
+      pwHash: hashSimple(pw)
+    };
+  }
+
+  saveUsers(USERS);
+  addAudit(SESSION.user, 'ADMIN',
+    editingKey ? 'MODIF. UTILISATEUR' : 'NOUVEL UTILISATEUR',
+    `${name} (${uid}) — ${deptLabel(dept)}`,
+    'audit-param');
+  showToast(editingKey ? `${name} modifié` : `${name} créé (ID: ${uid})`, 'ok');
+  resetForm();
+  renderUsers();
+}
+
+/* ── Edit user ───────────────────────────────────────── */
+function editUser(key) {
+  const u = USERS[key];
+  if (!u) return;
+  editingKey = key;
+  document.getElementById('formId').value      = u.uid || key;
+  document.getElementById('genIdDisplay').textContent = u.uid || key;
+  document.getElementById('formName').value    = u.name;
+  document.getElementById('formPw').value      = '';
+  document.getElementById('formRole').value    = u.role;
+  document.getElementById('formDept').value    = u.dept || 'production';
+  document.getElementById('formTitle').innerHTML = `<svg class="icon icon-sm"><use href="#icon-wrench"/></svg> MODIFIER UTILISATEUR`;
+  document.getElementById('btnCancelForm').style.display = 'block';
+  document.getElementById('formMsg').textContent = 'Laissez le mot de passe vide pour ne pas le changer.';
+  document.getElementById('formMsg').style.color = 'var(--text-dim)';
+  window.scrollTo(0, 0);
+}
+
+/* ── Delete user ─────────────────────────────────────── */
+function deleteUser(key) {
+  const u = USERS[key];
+  if (!u) return;
+  if (!confirm(`Supprimer ${u.name} (${u.uid || key}) ?`)) return;
+  addAudit(SESSION.user, 'ADMIN', 'SUPPRESSION UTILISATEUR', `${u.name} (${u.uid||key})`, 'audit-fail');
+  delete USERS[key];
+  saveUsers(USERS);
+  showToast(`${u.name} supprimé`, 'warn');
+  renderUsers();
+}
+
+/* ── Reset form ──────────────────────────────────────── */
+function resetForm() {
+  editingKey = null;
+  document.getElementById('formName').value = '';
+  document.getElementById('formPw').value   = '';
+  document.getElementById('formRole').value = 'operator';
+  document.getElementById('formDept').value = 'production';
+  document.getElementById('formMsg').textContent = '';
+  document.getElementById('formTitle').innerHTML = `<svg class="icon icon-sm"><use href="#icon-plus"/></svg> NOUVEL UTILISATEUR`;
+  document.getElementById('btnCancelForm').style.display = 'none';
+  document.getElementById('pwStrength').style.width = '0';
+  generateId();
+}
+
+document.getElementById('formPw').addEventListener('input', e => updatePwStrength(e.target.value));
+</script>
+</body>
+</html>

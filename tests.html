@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALIS-HMI — Résultat Test</title>
+<link rel="stylesheet" href="../css/style.css">
+<!-- JsBarcode — vraie bibliothèque code-barres Code 128 -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+  .page-body { padding:20px; overflow-y:auto; height:calc(100vh - 56px - 43px); }
+
+  /* ── Result card ── */
+  .result-card {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:24px; max-width:680px; margin:0 auto;
+  }
+  .result-header {
+    display:flex; justify-content:space-between; align-items:flex-start;
+    margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:16px;
+  }
+  .result-ref  { font-family:'Rajdhani'; font-size:24px; font-weight:700; color:var(--accent); }
+  .result-lot  { font-size:12px; color:var(--text-dim); margin-top:3px; }
+  .result-field {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 0; border-bottom:1px solid rgba(30,48,80,.4); font-size:13px;
+  }
+  .result-field:last-of-type { border-bottom:none; }
+  .rf-label { color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+  .rf-val   { font-family:'Share Tech Mono'; color:var(--text); }
+
+  /* ── Section title ── */
+  .res-section {
+    font-family:'Rajdhani'; font-size:11px; font-weight:700; letter-spacing:3px;
+    text-transform:uppercase; color:var(--text-dim); margin:16px 0 10px;
+    border-bottom:1px solid var(--border); padding-bottom:8px;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  /* ── Cable result table ── */
+  .res-cable-table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px; }
+  .res-cable-table th {
+    font-family:'Rajdhani'; font-size:10px; font-weight:700; letter-spacing:2px;
+    color:var(--text-dim); text-transform:uppercase; padding:7px 8px;
+    border-bottom:1px solid var(--border); text-align:center;
+  }
+  .res-cable-table td { padding:8px; text-align:center; border-bottom:1px solid rgba(30,48,80,.3); }
+
+  /* ── Global result badges ── */
+  .test-result-row { display:flex; gap:10px; margin-bottom:16px; }
+  .test-result-badge {
+    flex:1; padding:12px; border-radius:7px; text-align:center;
+    font-family:'Rajdhani'; font-size:14px; font-weight:700; letter-spacing:2px;
+  }
+  .tbadge-ok  { background:rgba(0,230,118,.1); border:1px solid var(--green); color:var(--green); }
+  .tbadge-nok { background:rgba(255,23,68,.1);  border:1px solid var(--red);   color:var(--red); }
+  .tbadge-na  { background:rgba(90,112,144,.1); border:1px solid var(--text-dim); color:var(--text-dim); }
+  .tbadge-sub { font-size:10px; opacity:.7; display:block; margin-top:2px; letter-spacing:1px; }
+
+  /* ── Barcode section ── */
+  .barcode-section {
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    padding:16px; text-align:center; margin-top:16px;
+  }
+  .barcode-section svg { max-width:100%; height:auto; }
+  .barcode-data {
+    font-family:'Share Tech Mono'; font-size:9px; color:var(--text-dim);
+    margin-top:6px; word-break:break-all; letter-spacing:.5px;
+  }
+  .barcode-label {
+    font-family:'Rajdhani'; font-size:10px; font-weight:700; letter-spacing:2px;
+    color:var(--text-dim); text-transform:uppercase; margin-bottom:8px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+
+  /* ── Print button ── */
+  .print-btn {
+    margin-top:20px; width:100%; padding:13px;
+    background:rgba(0,180,216,.1); border:1px solid var(--accent);
+    border-radius:6px; color:var(--accent); font-family:'Rajdhani';
+    font-size:16px; font-weight:700; cursor:pointer; letter-spacing:2px;
+    transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .print-btn:hover { background:rgba(0,180,216,.2); }
+
+  /* ══════════════════════════════════════════════════════
+     PRINT STYLES — ce qui s'imprime
+  ══════════════════════════════════════════════════════ */
+  @media print {
+    /* Hide everything except the ticket */
+    body * { visibility:hidden; }
+    .ticket-print, .ticket-print * { visibility:visible; }
+    .ticket-print {
+      position:fixed; inset:0;
+      background:#fff !important; color:#000 !important;
+      font-family:'Courier New', monospace;
+      padding:10mm; margin:0;
+    }
+    .print-btn, .topbar, .navtabs, .autolock-bar, .toast { display:none !important; }
+  }
+
+  /* ── Ticket print layout ── */
+  .ticket-print {
+    display:none; /* hidden on screen, shown when printing */
+    max-width:80mm; /* standard thermal printer width */
+    font-family:'Courier New', monospace;
+  }
+  .ticket-print.show { display:block; }
+
+  @media print {
+    .ticket-print { display:block !important; }
+    .result-card  { display:none !important; }
+    .page-body    { height:auto; overflow:visible; padding:0; }
+  }
+
+  .tp-header { text-align:center; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:8px; }
+  .tp-title  { font-size:16px; font-weight:bold; letter-spacing:2px; }
+  .tp-sub    { font-size:11px; margin-top:2px; }
+  .tp-row    { display:flex; justify-content:space-between; font-size:11px; padding:2px 0; }
+  .tp-label  { font-weight:bold; }
+  .tp-divider{ border:none; border-top:1px dashed #000; margin:6px 0; }
+  .tp-section{ font-size:11px; font-weight:bold; text-transform:uppercase; margin:6px 0 4px; text-align:center; letter-spacing:1px; }
+  .tp-cable  { font-size:10px; padding:1px 0; display:flex; gap:8px; }
+  .tp-verdict{ text-align:center; font-size:15px; font-weight:bold; padding:6px; margin:8px 0; border:2px solid #000; letter-spacing:2px; }
+  .tp-barcode{ text-align:center; margin-top:10px; }
+  .tp-barcode svg { max-width:100%; }
+  .tp-bc-data{ font-size:8px; text-align:center; word-break:break-all; margin-top:3px; color:#555; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="machine-name">
+    <svg class="icon icon-lg icon-accent"><use href="#icon-zap"/></svg>
+    SALIS-HMI
+  </div>
+  <div class="top-info">
+    <div class="top-item"><div class="top-label">ID</div><div class="top-value" id="topUID" style="color:var(--accent);font-weight:700;">—</div></div>
+    <div class="top-item"><div class="top-label">Nom</div><div class="top-value" id="topUser">—</div></div>
+    <div class="top-item"><div class="top-label">Département</div><div class="top-value" id="topDept">—</div></div>
+    <div class="top-item"><div class="top-label">Session</div><div class="top-value" id="sessionTimer">00:00</div></div>
+    <div class="top-item"><div class="top-label">Heure</div><div class="top-value" id="clock">--:--:--</div></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg class="icon icon-moon icon-accent"><use href="#icon-moon"/></svg>
+      <svg class="icon icon-sun  icon-accent"><use href="#icon-sun"/></svg>
+    </button>
+    <div class="role-badge" id="roleBadge" style="display:none;"><div class="role-dot"></div><span id="roleText">—</span></div>
+    <button class="btn-logout" onclick="doLogout()" id="logoutBtn" style="display:none;">
+      <svg class="icon icon-sm"><use href="#icon-power"/></svg> DÉCO
+    </button>
+  </div>
+</div>
+
+<!-- NAVTABS -->
+<nav class="navtabs">
+  <a class="navtab"        href="dashboard.html"><svg class="icon icon-sm"><use href="#icon-dashboard"/></svg> ACCUEIL</a>
+  <a class="navtab active" href="tests.html"><svg class="icon icon-sm"><use href="#icon-test"/></svg> TESTS</a>
+  <a class="navtab"        href="history.html"><svg class="icon icon-sm"><use href="#icon-chart"/></svg> HISTORIQUE</a>
+  <a class="navtab"        href="settings.html"><svg class="icon icon-sm"><use href="#icon-settings"/></svg> PARAMÈTRES</a>
+  <a class="navtab"        href="admin.html" id="tab-admin" style="display:none;"><svg class="icon icon-sm"><use href="#icon-user"/></svg> ADMIN</a>
+  <a class="navtab"        href="history.html#audit"><svg class="icon icon-sm"><use href="#icon-audit"/></svg> JOURNAL</a>
+</nav>
+
+<!-- ═══ SCREEN RESULT ═══ -->
+<div class="page-body">
+
+  <!-- ── HMI result card (screen only) ── -->
+  <div class="result-card">
+
+    <div class="result-header">
+      <div>
+        <div class="result-ref" id="res-ref">TYPE-B-5C</div>
+        <div class="result-lot">Lot N° <span id="res-lot">LOT-2024-0342</span></div>
+      </div>
+      <div class="verdict rejected" style="margin:0;padding:8px 18px;font-size:14px;" id="res-verdict">
+        <svg class="icon icon-sm" style="display:inline;vertical-align:middle;margin-right:4px;"><use href="#icon-xmark"/></svg>
+        REJETÉ
+      </div>
+    </div>
+
+    <!-- Operator info -->
+    <div class="res-section">
+      <svg class="icon icon-sm"><use href="#icon-user"/></svg> OPÉRATEUR
+    </div>
+    <div class="result-field">
+      <span class="rf-label"><svg class="icon icon-sm"><use href="#icon-user"/></svg> ID</span>
+      <span class="rf-val" id="res-uid" style="color:var(--accent);font-weight:700;">—</span>
+    </div>
+    <div class="result-field">
+      <span class="rf-label"><svg class="icon icon-sm"><use href="#icon-user"/></svg> Nom</span>
+      <span class="rf-val" id="res-operator">—</span>
+    </div>
+    <div class="result-field">
+      <span class="rf-label"><svg class="icon icon-sm"><use href="#icon-chart"/></svg> Département</span>
+      <span class="rf-val" id="res-dept">—</span>
+    </div>
+    <div class="result-field">
+      <span class="rf-label"><svg class="icon icon-sm"><use href="#icon-history"/></svg> Date &amp; Heure</span>
+      <span class="rf-val" id="res-datetime">—</span>
+    </div>
+
+    <!-- Test params -->
+    <div class="res-section">
+      <svg class="icon icon-sm icon-wrench"><use href="#icon-wrench"/></svg> PARAMÈTRES TEST
+    </div>
+    <div class="result-field">
+      <span class="rf-label"><svg class="icon icon-sm icon-hv"><use href="#icon-zap"/></svg> Tension HV</span>
+      <span class="rf-val" id="res-hv-v">—</span>
+    </div>
+    <div class="result-field">
+      <span class="rf-label"><svg class="icon icon-sm" style="stroke:var(--dry)"><use href="#icon-drop"/></svg> Pression Dry</span>
+      <span class="rf-val" id="res-dry-p">—</span>
+    </div>
+    <div class="result-field">
+      <span class="rf-label"><svg class="icon icon-sm"><use href="#icon-wave"/></svg> Durée totale</span>
+      <span class="rf-val" id="res-duration">—</span>
+    </div>
+
+    <!-- Global test results -->
+    <div class="res-section">
+      <svg class="icon icon-sm"><use href="#icon-check"/></svg> RÉSULTATS GLOBAUX
+    </div>
+    <div class="test-result-row">
+      <div class="test-result-badge" id="res-badge-pneumo">
+        <svg class="icon" style="display:block;margin:0 auto 4px;"><use href="#icon-drop"/></svg>
+        TEST PNEUMATIQUE
+        <span class="tbadge-sub" id="res-badge-pneumo-sub">—</span>
+      </div>
+      <div class="test-result-badge" id="res-badge-hv">
+        <svg class="icon" style="display:block;margin:0 auto 4px;"><use href="#icon-zap"/></svg>
+        TEST HV
+        <span class="tbadge-sub" id="res-badge-hv-sub">—</span>
+      </div>
+    </div>
+
+    <!-- Per-cable results -->
+    <div class="res-section">
+      <svg class="icon icon-sm"><use href="#icon-cable"/></svg> DÉTAIL PAR CÂBLE
+    </div>
+    <table class="res-cable-table">
+      <thead>
+        <tr>
+          <th>Câble</th>
+          <th><svg class="icon icon-sm" style="stroke:var(--dry);vertical-align:middle;"><use href="#icon-drop"/></svg> Pneumo</th>
+          <th><svg class="icon icon-sm icon-hv" style="vertical-align:middle;"><use href="#icon-zap"/></svg> HV</th>
+          <th>Flow<br><small>mL/min</small></th>
+          <th>État</th>
+        </tr>
+      </thead>
+      <tbody id="res-cable-tbody">
+        <tr><td colspan="5" style="text-align:center;color:var(--text-dim);font-size:12px;padding:12px;">Aucun test effectué</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Barcode section -->
+    <div class="barcode-section">
+      <div class="barcode-label">
+        <svg class="icon icon-sm"><use href="#icon-audit"/></svg>
+        CODE-BARRES — Code 128 (scannable)
+      </div>
+      <svg id="barcodeCanvas"></svg>
+      <div class="barcode-data" id="barcodeData">—</div>
+    </div>
+
+    <button class="print-btn" onclick="printTicket()">
+      <svg class="icon"><use href="#icon-print"/></svg>
+      IMPRIMER TICKET
+    </button>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       TICKET PRINT (visible only when printing)
+  ═══════════════════════════════════════════════════ -->
+  <div class="ticket-print" id="ticketPrint">
+
+    <div class="tp-header">
+      <div class="tp-title">SALIS-HMI</div>
+      <div class="tp-sub">RAPPORT DE TEST CÂBLES</div>
+    </div>
+
+    <div class="tp-row"><span class="tp-label">Référence :</span><span id="tp-ref">—</span></div>
+    <div class="tp-row"><span class="tp-label">Lot       :</span><span id="tp-lot">—</span></div>
+    <div class="tp-row"><span class="tp-label">Date      :</span><span id="tp-date">—</span></div>
+    <hr class="tp-divider">
+    <div class="tp-row"><span class="tp-label">ID Op.    :</span><span id="tp-uid">—</span></div>
+    <div class="tp-row"><span class="tp-label">Nom       :</span><span id="tp-name">—</span></div>
+    <div class="tp-row"><span class="tp-label">Dept      :</span><span id="tp-dept">—</span></div>
+    <hr class="tp-divider">
+    <div class="tp-row"><span class="tp-label">HV        :</span><span id="tp-hv-v">—</span></div>
+    <div class="tp-row"><span class="tp-label">Pression  :</span><span id="tp-dry-p">—</span></div>
+    <hr class="tp-divider">
+    <div class="tp-section">— RÉSULTATS PAR CÂBLE —</div>
+    <div id="tp-cables"></div>
+    <hr class="tp-divider">
+    <div class="tp-verdict" id="tp-verdict">—</div>
+    <hr class="tp-divider">
+    <div class="tp-barcode">
+      <svg id="barcodeTicket"></svg>
+      <div class="tp-bc-data" id="tp-bc-data">—</div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="autolock-bar"><div class="autolock-progress" id="autolockBar" style="width:100%;"></div></div>
+<div class="toast" id="toast"></div>
+<div class="vkbd-overlay hidden" id="vkbdOverlay"></div>
+
+<script src="../js/api.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  startClock(); startSessionTimer(); renderTopbar();
+
+  // Show admin tab if admin
+  const ta = document.getElementById('tab-admin');
+  if(ta) ta.style.display = SESSION.role === 'admin' ? 'inline-flex' : 'none';
+
+  startAutolock(() => { clearSession(); window.location.href = 'login.html'; });
+
+  // Fill result data
+  buildResult();
+});
+
+function doLogout() {
+  addAudit(SESSION.user, SESSION.role, 'DÉCONNEXION', 'Session fermée', 'audit-logout');
+  stopAutolock(); clearSession(); window.location.href = 'login.html';
+}
+
+/* ══════════════════════════════════════════════════════
+   BUILD RESULT — uses SESSION + PROGRAMME + MACHINE_PARAMS
+══════════════════════════════════════════════════════ */
+function buildResult() {
+  const now      = new Date();
+  const dateStr  = now.toLocaleString('fr-FR');
+  const ref      = getActiveRef();
+  const lot      = 'LOT-' + now.getFullYear() + '-' + String(Math.floor(Math.random()*9000+1000));
+  const p        = getActiveParams();
+  const deptMap  = { production:'Production', qualite:'Qualité', technique:'Technique' };
+  const dept     = deptMap[SESSION.dept] || '—';
+
+  // Simulated cable results (in real use, this comes from the test engine via localStorage)
+  const config   = PROGRAMME.mode === 'M1'
+    ? { nb:1, types:['both'] }
+    : (() => {
+        const r = PROGRAMME.m2_refs.find(r=>r.id===PROGRAMME.m2_selected);
+        return { nb: r?.nb_cables||1, types: r?.cable_types||['both'] };
+      })();
+
+  // Build fake results for demo
+  const cables = Array.from({length:config.nb}, (_, i) => {
+    const type   = config.types[i] || 'both';
+    const pneumo = (type==='pneumo'||type==='both') ? (i===2?'NOK':'OK') : 'N/A';
+    const hv     = (type==='hv'    ||type==='both') ? (i===2?'NOK':'OK') : 'N/A';
+    const flow   = (type==='pneumo'||type==='both') ? (Math.random()*2).toFixed(1) : '—';
+    const ok     = pneumo!=='NOK' && hv!=='NOK';
+    return { n:i+1, pneumo, hv, flow, ok, type };
+  });
+
+  const allOk      = cables.every(c=>c.ok);
+  const okCount    = cables.filter(c=>c.ok).length;
+  const nokCount   = cables.length - okCount;
+  const hasPneumo  = cables.some(c=>c.type==='both'||c.type==='pneumo');
+  const hasHV      = cables.some(c=>c.type==='both'||c.type==='hv');
+  const pneumoOk   = cables.filter(c=>c.type==='both'||c.type==='pneumo').every(c=>c.pneumo!=='NOK');
+  const hvOk       = cables.filter(c=>c.type==='both'||c.type==='hv').every(c=>c.hv!=='NOK');
+  const duration   = (cables.length * 2.5 + Math.random()).toFixed(1);
+
+  // ── Screen result card ──────────────────────────────
+  document.getElementById('res-ref').textContent      = ref;
+  document.getElementById('res-lot').textContent      = lot;
+  document.getElementById('res-uid').textContent      = SESSION.uid || '—';
+  document.getElementById('res-operator').textContent = SESSION.user || '—';
+  document.getElementById('res-dept').textContent     = dept;
+  document.getElementById('res-datetime').textContent = dateStr;
+  document.getElementById('res-hv-v').textContent     = p.hv_voltage + ' V';
+  document.getElementById('res-dry-p').textContent    = p.dry_pres   + ' bar';
+  document.getElementById('res-duration').textContent = duration      + ' s';
+
+  // Verdict
+  const vb = document.getElementById('res-verdict');
+  if(allOk) {
+    vb.className = 'verdict accepted';
+    vb.innerHTML = '<svg class="icon icon-sm" style="display:inline;vertical-align:middle;margin-right:4px;"><use href="#icon-check"/></svg> ACCEPTÉ';
+  } else {
+    vb.className = 'verdict rejected';
+    vb.innerHTML = '<svg class="icon icon-sm" style="display:inline;vertical-align:middle;margin-right:4px;"><use href="#icon-xmark"/></svg> REJETÉ';
+  }
+
+  // Global test badges
+  const bp = document.getElementById('res-badge-pneumo');
+  const bh = document.getElementById('res-badge-hv');
+  if(hasPneumo) {
+    bp.className = 'test-result-badge ' + (pneumoOk?'tbadge-ok':'tbadge-nok');
+    document.getElementById('res-badge-pneumo-sub').textContent = pneumoOk ? 'CONFORME' : 'NON CONFORME';
+  } else {
+    bp.className = 'test-result-badge tbadge-na';
+    document.getElementById('res-badge-pneumo-sub').textContent = 'NON TESTÉ';
+  }
+  if(hasHV) {
+    bh.className = 'test-result-badge ' + (hvOk?'tbadge-ok':'tbadge-nok');
+    document.getElementById('res-badge-hv-sub').textContent = hvOk ? 'CONFORME' : 'NON CONFORME';
+  } else {
+    bh.className = 'test-result-badge tbadge-na';
+    document.getElementById('res-badge-hv-sub').textContent = 'NON TESTÉ';
+  }
+
+  // Cable table
+  const tbody = document.getElementById('res-cable-tbody');
+  tbody.innerHTML = cables.map(c=>`
+    <tr>
+      <td class="cable-num">${c.n}</td>
+      <td>${c.pneumo==='OK'?'<span class="res-ok">OK</span>':c.pneumo==='NOK'?'<span class="res-nok">NOK</span>':'<span style="color:var(--text-dim);font-size:10px;">N/A</span>'}</td>
+      <td>${c.hv==='OK'    ?'<span class="res-ok">OK</span>':c.hv==='NOK'    ?'<span class="res-nok">NOK</span>':'<span style="color:var(--text-dim);font-size:10px;">N/A</span>'}</td>
+      <td style="font-family:'Share Tech Mono';font-size:11px;color:var(--green);">${c.flow}</td>
+      <td><span class="state-badge ${c.ok?'state-ok':'state-nok'}"></span></td>
+    </tr>
+  `).join('');
+
+  // ── Build barcode data string ───────────────────────
+  // Format: REF|DATE|UID|NOM|DEPT|VERDICT|NB_CABLES|C1:P/H|C2:P/H|...
+  const cableStr = cables.map(c=>`C${c.n}:${c.pneumo}/${c.hv}`).join('|');
+  const barcodeValue = [
+    ref,
+    now.toLocaleDateString('fr-FR').replace(/\//g,'-'),
+    SESSION.uid||'OP-0000',
+    (SESSION.user||'').replace(/ /g,'_'),
+    SESSION.dept||'PROD',
+    allOk?'OK':'NOK',
+    `${okCount}/${cables.length}`,
+    cableStr
+  ].join('|');
+
+  // Generate real Code 128 barcode
+  generateBarcode('barcodeCanvas', barcodeValue, false);
+  document.getElementById('barcodeData').textContent = barcodeValue;
+
+  // ── Fill print ticket ───────────────────────────────
+  document.getElementById('tp-ref').textContent   = ref;
+  document.getElementById('tp-lot').textContent   = lot;
+  document.getElementById('tp-date').textContent  = dateStr;
+  document.getElementById('tp-uid').textContent   = SESSION.uid || '—';
+  document.getElementById('tp-name').textContent  = SESSION.user || '—';
+  document.getElementById('tp-dept').textContent  = dept;
+  document.getElementById('tp-hv-v').textContent  = p.hv_voltage + ' V / ' + p.hv_time + 's';
+  document.getElementById('tp-dry-p').textContent = p.dry_pres   + ' bar / ' + p.dry_stab + 's';
+  document.getElementById('tp-verdict').textContent = allOk ? '✓ FAISCEAU ACCEPTÉ' : '✗ FAISCEAU REJETÉ';
+  document.getElementById('tp-verdict').style.borderColor = allOk ? '#00a152' : '#d50000';
+  document.getElementById('tp-verdict').style.color       = allOk ? '#00a152' : '#d50000';
+
+  document.getElementById('tp-cables').innerHTML = cables.map(c=>`
+    <div class="tp-cable">
+      <span>C${c.n}</span>
+      <span>P:${c.pneumo}</span>
+      <span>HV:${c.hv}</span>
+      <span>F:${c.flow}mL</span>
+      <span>${c.ok?'✓':'✗'}</span>
+    </div>
+  `).join('');
+
+  // Barcode on ticket (white background for printing)
+  generateBarcode('barcodeTicket', barcodeValue, true);
+  document.getElementById('tp-bc-data').textContent = barcodeValue;
+}
+
+/* ══════════════════════════════════════════════════════
+   GENERATE REAL CODE 128 BARCODE using JsBarcode
+══════════════════════════════════════════════════════ */
+function generateBarcode(elementId, value, forPrint) {
+  try {
+    // Truncate if too long for barcode (max ~80 chars recommended for Code 128)
+    let bval = value;
+    if(bval.length > 80) {
+      // Keep essential parts: ref|date|uid|verdict
+      const parts = value.split('|');
+      bval = parts.slice(0,7).join('|');
+    }
+
+    JsBarcode('#' + elementId, bval, {
+      format:      'CODE128',
+      width:       forPrint ? 1.5 : 2,
+      height:      forPrint ? 50  : 60,
+      displayValue: false,         // we show the data separately
+      background:  forPrint ? '#ffffff' : 'transparent',
+      lineColor:   forPrint ? '#000000' : 'var(--text)',
+      margin:      6,
+      valid: (valid) => {
+        if(!valid) {
+          // Fallback: use only ref + date + uid + verdict
+          const parts = value.split('|');
+          JsBarcode('#' + elementId,
+            `${parts[0]}|${parts[1]}|${parts[2]}|${parts[5]}`, {
+            format:'CODE128', width:forPrint?1.5:2, height:forPrint?50:60,
+            displayValue:false,
+            background: forPrint?'#ffffff':'transparent',
+            lineColor:  forPrint?'#000000':'var(--text)',
+            margin:6
+          });
+        }
+      }
+    });
+  } catch(e) {
+    console.warn('Barcode error:', e);
+    // Draw a simple placeholder if JsBarcode fails
+    const svg = document.getElementById(elementId);
+    if(svg) svg.innerHTML = `<text x="10" y="30" font-size="12" fill="currentColor">Code-barres: ${value.substring(0,40)}</text>`;
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   PRINT
+══════════════════════════════════════════════════════ */
+function printTicket() {
+  // Regenerate ticket barcode just before printing
+  const barcodeData = document.getElementById('barcodeData').textContent;
+  generateBarcode('barcodeTicket', barcodeData, true);
+
+  // Small delay to ensure barcode is rendered
+  setTimeout(() => { window.print(); }, 300);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALIS-HMI — Dashboard</title>
+<link rel="stylesheet" href="../css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  .page-body{display:grid;grid-template-columns:260px 1fr 300px;height:calc(100vh - 56px - 43px);overflow:hidden;}
+  .panel{background:var(--panel);border-right:1px solid var(--border);padding:14px;overflow-y:auto;transition:background .3s;}
+  .panel.right{border-right:none;border-left:1px solid var(--border);}
+  .center{background:var(--bg);padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;}
+  #progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .3s;}
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .chart-card{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:12px;height:210px;position:relative;}
+  .chart-card canvas{display:block !important;}
+
+  /* ── Message box ── */
+  .msg-box{
+    padding:14px 16px; border-radius:8px; font-family:'Rajdhani';
+    font-size:15px; font-weight:700; letter-spacing:1px;
+    display:flex; align-items:center; gap:10px; margin-bottom:12px;
+  }
+  .msg-wait   { background:rgba(90,112,144,.1); border:1px solid var(--border); color:var(--text-dim); }
+  .msg-dry    { background:rgba(0,180,216,.12);  border:1px solid var(--accent); color:var(--accent); }
+  .msg-hv     { background:rgba(255,107,53,.12); border:1px solid var(--hv);     color:var(--hv); }
+  .msg-ok     { background:rgba(0,230,118,.12);  border:1px solid var(--green);  color:var(--green); }
+  .msg-nok    { background:rgba(255,23,68,.12);  border:1px solid var(--red);    color:var(--red); }
+  .msg-done   { background:rgba(0,230,118,.08);  border:1px solid var(--green);  color:var(--green); }
+
+  /* ── Test buttons ── */
+  .test-btns { display:flex; gap:8px; }
+  .btn-dry {
+    flex:1; padding:14px; background:rgba(0,180,216,.12);
+    border:2px solid var(--accent); border-radius:8px;
+    color:var(--accent); font-family:'Rajdhani'; font-size:16px;
+    font-weight:700; letter-spacing:2px; cursor:pointer; transition:all .2s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-dry:hover:not(:disabled) { background:rgba(0,180,216,.25); transform:translateY(-1px); }
+  .btn-dry:disabled { opacity:.3; cursor:not-allowed; transform:none; }
+  .btn-hv {
+    flex:1; padding:14px; background:rgba(255,107,53,.12);
+    border:2px solid var(--hv); border-radius:8px;
+    color:var(--hv); font-family:'Rajdhani'; font-size:16px;
+    font-weight:700; letter-spacing:2px; cursor:pointer; transition:all .2s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-hv:hover:not(:disabled) { background:rgba(255,107,53,.25); transform:translateY(-1px); }
+  .btn-hv:disabled { opacity:.3; cursor:not-allowed; transform:none; }
+  .btn-stop-test {
+    padding:14px 18px; background:rgba(255,23,68,.1);
+    border:1px solid var(--red); border-radius:8px; color:var(--red);
+    font-family:'Rajdhani'; font-size:14px; font-weight:700;
+    letter-spacing:2px; cursor:pointer; transition:all .2s;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .btn-stop-test:hover { background:rgba(255,23,68,.2); }
+  .btn-stop-test:disabled { opacity:.3; cursor:not-allowed; }
+
+  /* ── Cable indicator ── */
+  .cable-indicator {
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    padding:12px; text-align:center; margin-bottom:10px;
+  }
+  .cable-num-big { font-family:'Share Tech Mono'; font-size:48px; color:var(--accent); line-height:1; }
+  .cable-num-label { font-size:10px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; margin-top:4px; }
+  .cable-num-total { font-size:12px; color:var(--text-dim); font-family:'Share Tech Mono'; }
+
+  /* ── Phase dots ── */
+  .phase-dots { display:flex; gap:6px; justify-content:center; margin-top:8px; }
+  .phase-dot { width:10px; height:10px; border-radius:50%; background:var(--border); transition:all .3s; }
+  .phase-dot.done  { background:var(--green); box-shadow:0 0 5px var(--green); }
+  .phase-dot.active-dry { background:var(--accent); box-shadow:0 0 8px var(--accent); animation:blink 1s infinite; }
+  .phase-dot.active-hv  { background:var(--hv);    box-shadow:0 0 8px var(--hv);    animation:blink 1s infinite; }
+  .phase-dot.fail  { background:var(--red); box-shadow:0 0 5px var(--red); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="machine-name">
+    <svg class="icon icon-lg icon-accent"><use href="#icon-zap"/></svg>
+    SALIS-HMI
+  </div>
+  <div class="top-info">
+    <div class="top-item"><div class="top-label">ID Opérateur</div><div class="top-value" id="topUID" style="color:var(--accent);font-weight:700;">—</div></div>
+    <div class="top-item"><div class="top-label">Nom</div><div class="top-value" id="topUser">—</div></div>
+    <div class="top-item"><div class="top-label">Département</div><div class="top-value" id="topDept">—</div></div>
+    <div class="top-item"><div class="top-label">Programme</div><div class="top-value" id="topProg" style="color:var(--accent);">—</div></div>
+    <div class="top-item"><div class="top-label">Référence</div><div class="top-value" id="topRef">—</div></div>
+    <div class="top-item"><div class="top-label">Session</div><div class="top-value" id="sessionTimer">00:00</div></div>
+    <div class="top-item"><div class="top-label">Heure</div><div class="top-value" id="clock">--:--:--</div></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg class="icon icon-moon icon-accent"><use href="#icon-moon"/></svg>
+      <svg class="icon icon-sun  icon-accent"><use href="#icon-sun"/></svg>
+    </button>
+    <div class="role-badge" id="roleBadge" style="display:none;"><div class="role-dot"></div><span id="roleText">—</span></div>
+    <div class="status-badge ready" id="status-badge"><div class="status-dot"></div><span id="status-text">PRÊT</span></div>
+    <button class="btn-logout" onclick="doLogout()" id="logoutBtn" style="display:none;">
+      <svg class="icon icon-sm"><use href="#icon-power"/></svg> DÉCO
+    </button>
+  </div>
+</div>
+
+<!-- NAVTABS -->
+<nav class="navtabs">
+  <a class="navtab active" href="dashboard.html"><svg class="icon icon-sm"><use href="#icon-dashboard"/></svg> ACCUEIL</a>
+  <a class="navtab" href="tests.html"><svg class="icon icon-sm"><use href="#icon-test"/></svg> TESTS</a>
+  <a class="navtab" href="history.html"><svg class="icon icon-sm"><use href="#icon-chart"/></svg> HISTORIQUE</a>
+  <a class="navtab" href="settings.html" id="tab-settings"><svg class="icon icon-sm"><use href="#icon-settings"/></svg> PARAMÈTRES</a>
+  <a class="navtab" href="admin.html" id="tab-admin" style="display:none;"><svg class="icon icon-sm"><use href="#icon-user"/></svg> ADMIN</a>
+  <a class="navtab" href="history.html#audit"><svg class="icon icon-sm"><use href="#icon-audit"/></svg> JOURNAL</a>
+</nav>
+
+<!-- PAGE BODY -->
+<div class="page-body">
+
+  <!-- ═══ LEFT PANEL ═══ -->
+  <div class="panel">
+
+    <!-- Programme selector -->
+    <div class="sec-title"><svg class="icon icon-sm"><use href="#icon-chip"/></svg> PROGRAMME</div>
+    <div class="prog-selector">
+      <button class="prog-btn" id="btnM1" onclick="selectProg('M1')">
+        <span class="prog-label">M1</span>
+        <span class="prog-sub">Standard</span>
+      </button>
+      <button class="prog-btn" id="btnM2" onclick="selectProg('M2')">
+        <span class="prog-label">M2</span>
+        <span class="prog-sub">Multi-Réf</span>
+      </button>
+    </div>
+
+    <!-- M1 info -->
+    <div class="m1-badge" id="m1Badge">
+      <svg class="icon icon-sm icon-accent"><use href="#icon-chip"/></svg>
+      Standard — 1 câble
+    </div>
+
+    <!-- M2 reference picker (operator just chooses ref) -->
+    <div class="m2-panel" id="m2Panel">
+      <div class="m2-panel-title">
+        <svg class="icon icon-sm icon-orange"><use href="#icon-layers"/></svg>
+        CHOISIR RÉFÉRENCE
+      </div>
+      <div class="m2-ref-list" id="m2RefList"></div>
+    </div>
+
+    <!-- Active params display -->
+    <div class="sec-title" style="margin-top:12px;">
+      <svg class="icon icon-sm"><use href="#icon-wrench"/></svg> PARAMÈTRES ACTIFS
+    </div>
+
+    <div class="param-card dry">
+      <div class="param-card-title">
+        <svg class="icon icon-sm" style="stroke:var(--dry)"><use href="#icon-drop"/></svg> TEST DRY
+      </div>
+      <div class="param-row"><span class="param-name">Pression</span><span class="param-val" id="disp-dry-p">— bar</span></div>
+      <div class="param-row"><span class="param-name">Stabilisation</span><span class="param-val" id="disp-dry-t">— s</span></div>
+      <div class="param-row"><span class="param-name">Seuil ΔP</span><span class="param-val" id="disp-dry-d">— bar</span></div>
+      <div class="param-row"><span class="param-name">Seuil Flow</span><span class="param-val" id="disp-flow">— mL/min</span></div>
+    </div>
+
+    <div class="param-card hv" id="hvParamCard">
+      <div class="param-card-title">
+        <svg class="icon icon-sm icon-hv"><use href="#icon-zap"/></svg> TEST HV
+      </div>
+      <div class="param-row"><span class="param-name">Tension</span><span class="param-val" id="disp-hv-v">— V</span></div>
+      <div class="param-row"><span class="param-name">Temps</span><span class="param-val" id="disp-hv-t">— s</span></div>
+      <div class="param-row"><span class="param-name">Seuil courant</span><span class="param-val" id="disp-hv-i">— µA</span></div>
+    </div>
+
+    <!-- Type test badge -->
+    <div style="font-size:10px;color:var(--text-dim);text-align:center;letter-spacing:1px;margin-bottom:10px;padding:5px;background:rgba(0,180,216,.05);border:1px solid rgba(0,180,216,.1);border-radius:4px;" id="testTypeDisplay">—</div>
+
+    <!-- Progress -->
+    <div style="margin-top:14px;">
+      <div style="background:var(--bg);border-radius:4px;overflow:hidden;height:6px;margin-bottom:6px;border:1px solid var(--border);">
+        <div id="progress-bar"></div>
+      </div>
+      <div style="font-family:'Share Tech Mono';font-size:11px;color:var(--text-dim);text-align:center;" id="progress-label">En attente...</div>
+    </div>
+  </div>
+
+  <!-- ═══ CENTER ═══ -->
+  <div class="center">
+
+    <!-- Message box -->
+    <div class="msg-box msg-wait" id="msgBox">
+      <svg class="icon icon-lg"><use href="#icon-cable"/></svg>
+      <span id="msgText">Prêt — Sélectionner programme et lancer le test</span>
+    </div>
+
+    <!-- Cable indicator -->
+    <div class="cable-indicator">
+      <div class="cable-num-label">CÂBLE EN COURS</div>
+      <div class="cable-num-big" id="cableNumBig">—</div>
+      <div class="cable-num-total" id="cableNumTotal">/ —</div>
+      <div class="phase-dots" id="phaseDots"></div>
+    </div>
+
+    <!-- Test buttons -->
+    <div class="test-btns">
+      <button class="btn-dry" id="btnDry" onclick="launchDry()">
+        <svg class="icon"><use href="#icon-drop"/></svg> TEST DRY
+      </button>
+      <button class="btn-hv" id="btnHV" onclick="launchHV()" disabled>
+        <svg class="icon"><use href="#icon-zap"/></svg> TEST HV
+      </button>
+      <button class="btn-stop-test" id="btnStopTest" onclick="stopAll()" disabled>
+        <svg class="icon icon-sm"><use href="#icon-stop"/></svg> STOP
+      </button>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title"><svg class="icon icon-sm icon-hv"><use href="#icon-wave"/></svg> TENSION / COURANT HV</div>
+        <canvas id="chartHV"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><svg class="icon icon-sm icon-accent"><use href="#icon-wave"/></svg> COURBE PRESSION DRY</div>
+        <canvas id="chartDry"></canvas>
+      </div>
+    </div>
+
+    <!-- Live values -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div class="live-card"><div class="live-label">Courant HV</div><div class="live-val" id="live-current">0.0</div><div class="live-unit">µA</div></div>
+      <div class="live-card"><div class="live-label">Tension HV</div><div class="live-val" id="live-voltage">0</div><div class="live-unit">V</div></div>
+      <div class="live-card"><div class="live-label">Pression</div><div class="live-val" id="live-pressure">0.00</div><div class="live-unit">bar</div></div>
+      <div class="live-card" style="border-color:rgba(0,230,118,.3)"><div class="live-label">Mass Flow (fuite)</div><div class="live-val" id="live-massflow" style="color:var(--green)">0.0</div><div class="live-unit">mL/min</div></div>
+      <div class="live-card"><div class="live-label">Phase active</div><div class="live-val" id="live-phase" style="font-size:16px;">—</div><div class="live-unit"> </div></div>
+      <div class="live-card"><div class="live-label">Temps écoulé</div><div class="live-val" id="live-time">0.0</div><div class="live-unit">s</div></div>
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT PANEL ═══ -->
+  <div class="panel right">
+    <div class="sec-title"><svg class="icon icon-sm"><use href="#icon-cable"/></svg> RÉSULTATS FAISCEAU</div>
+    <table class="cable-table">
+      <thead>
+        <tr>
+          <th>Câble</th>
+          <th><svg class="icon icon-sm" style="stroke:var(--dry);vertical-align:middle;"><use href="#icon-drop"/></svg> DRY</th>
+          <th><svg class="icon icon-sm icon-hv" style="vertical-align:middle;"><use href="#icon-zap"/></svg> HV</th>
+          <th>Flow</th>
+          <th>État</th>
+        </tr>
+      </thead>
+      <tbody id="cable-tbody"></tbody>
+    </table>
+
+    <div class="summary-row">
+      <div class="sum-card sum-ok"><div class="sum-num" id="sumOK">—</div><div class="sum-label">OK</div></div>
+      <div class="sum-card sum-nok"><div class="sum-num" id="sumNOK">—</div><div class="sum-label">NOK</div></div>
+    </div>
+    <div class="verdict" id="verdictBanner" style="display:none;"></div>
+
+    <div style="margin-top:14px;" id="printSection" style="display:none;">
+      <button class="btn-eng" onclick="window.location.href='tests.html'" style="background:rgba(0,230,118,.1);border-color:var(--green);color:var(--green);">
+        <svg class="icon icon-sm icon-green"><use href="#icon-print"/></svg> VOIR TICKET
+      </button>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="sec-title"><svg class="icon icon-sm"><use href="#icon-history"/></svg> DERNIERS TESTS</div>
+      <div style="font-size:11px;color:var(--text-dim);font-family:'Share Tech Mono';" id="recentTests">
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);"><span>09:42</span><span>TYPE-A</span><span style="color:var(--green);">OK</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);"><span>09:28</span><span>TYPE-B</span><span style="color:var(--red);">NOK</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);"><span>09:15</span><span>TYPE-A</span><span style="color:var(--green);">OK</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>08:58</span><span>TYPE-C</span><span style="color:var(--green);">OK</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Autolock bar -->
+<div class="autolock-bar"><div class="autolock-progress" id="autolockBar" style="width:100%;"></div></div>
+
+<!-- Change password overlay -->
+<div class="chpw-overlay hidden" id="chpwOverlay">
+  <div class="chpw-box">
+    <div class="chpw-title"><svg class="icon"><use href="#icon-key"/></svg> MODIFIER MOT DE PASSE</div>
+    <div class="chpw-field"><label>Mot de passe actuel</label>
+      <div class="chpw-input-row">
+        <input type="password" id="chpwCurrent" autocomplete="off" placeholder="••••••••">
+        <button class="kbd-open-btn" onclick="VKbd.open(document.getElementById('chpwCurrent'),'Mot de passe actuel')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+      </div>
+    </div>
+    <div class="chpw-field"><label>Nouveau mot de passe</label>
+      <div class="chpw-input-row">
+        <input type="password" id="chpwNew" placeholder="Min. 8 caractères" oninput="checkStrength(this.value)" autocomplete="off">
+        <button class="kbd-open-btn" onclick="VKbd.open(document.getElementById('chpwNew'),'Nouveau',v=>checkStrength(v))"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+      </div>
+      <div class="chpw-strength" id="chpwStrengthBar"></div>
+    </div>
+    <div class="chpw-field"><label>Confirmer</label>
+      <div class="chpw-input-row">
+        <input type="password" id="chpwConfirm" autocomplete="off" placeholder="Répéter">
+        <button class="kbd-open-btn" onclick="VKbd.open(document.getElementById('chpwConfirm'),'Confirmer')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+      </div>
+    </div>
+    <div class="chpw-msg" id="chpwMsg"></div>
+    <div class="chpw-row">
+      <button class="chpw-cancel" onclick="closeChpw()">ANNULER</button>
+      <button class="chpw-confirm" onclick="doChangePassword()">✔ CONFIRMER</button>
+    </div>
+  </div>
+</div>
+
+<div class="vkbd-overlay hidden" id="vkbdOverlay"></div>
+<div class="toast" id="toast"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/dashboard.js"></script>
+<script>
+/* ── Fonctions UI définies ici car elles utilisent des éléments HTML ── */
+
+function refreshParamDisplay() {
+  const p = getActiveParams();
+  const type = PROGRAMME.mode==='M1'
+    ? (MACHINE_PARAMS.m1_test_type||'both')
+    : (PROGRAMME.m2_refs.find(r=>r.id===PROGRAMME.m2_selected)?.test_type||'both');
+
+  document.getElementById('disp-dry-p').textContent  = p.dry_pres   + ' bar';
+  document.getElementById('disp-dry-t').textContent  = p.dry_stab   + ' s';
+  document.getElementById('disp-dry-d').textContent  = p.dry_delta  + ' bar';
+  document.getElementById('disp-flow').textContent   = (p.massflow_seuil||5) + ' mL/min';
+  document.getElementById('disp-hv-v').textContent   = p.hv_voltage + ' V';
+  document.getElementById('disp-hv-t').textContent   = p.hv_time    + ' s';
+  document.getElementById('disp-hv-i').textContent   = p.hv_current + ' µA';
+  document.getElementById('topRef').textContent      = getActiveRef();
+  document.getElementById('topProg').textContent     = PROGRAMME.mode;
+  const hvCard = document.getElementById('hvParamCard');
+  if(hvCard) hvCard.style.display = (type==='dry') ? 'none' : 'block';
+  const typeLabels = { both:'DRY + HV', dry:'DRY seulement', hv:'HV seulement' };
+  const td = document.getElementById('testTypeDisplay');
+  if(td) td.textContent = 'Type : ' + (typeLabels[type]||'DRY + HV');
+}
+
+function selectProg(mode, save=true) {
+  PROGRAMME.mode = mode;
+  if(save) saveProg(PROGRAMME);
+  document.getElementById('btnM1').className = 'prog-btn'+(mode==='M1'?' active-m1':'');
+  document.getElementById('btnM2').className = 'prog-btn'+(mode==='M2'?' active-m2':'');
+  document.getElementById('m1Badge').classList.toggle('visible', mode==='M1');
+  document.getElementById('m2Panel').classList.toggle('visible', mode==='M2');
+  if(mode==='M2') renderM2Refs();
+  refreshParamDisplay();
+  renderTopbar();
+  if(typeof resetTestUI==='function') resetTestUI();
+}
+
+function renderM2Refs() {
+  const list = document.getElementById('m2RefList');
+  if(!list) return;
+  list.innerHTML = PROGRAMME.m2_refs.map(r => `
+    <div class="m2-ref-item ${r.id===PROGRAMME.m2_selected?'selected':''}"
+         onclick="selectM2Ref('${r.id}')">
+      <span class="ref-name">${r.name}</span>
+      <span class="ref-params">${r.nb_cables||1}c — ${r.hv_voltage}V / ${r.dry_pres}bar</span>
+    </div>`).join('');
+}
+
+function selectM2Ref(id) {
+  PROGRAMME.m2_selected = id;
+  saveProg(PROGRAMME);
+  renderM2Refs();
+  refreshParamDisplay();
+  renderTopbar();
+  if(typeof resetTestUI==='function') resetTestUI();
+  const r = PROGRAMME.m2_refs.find(x=>x.id===id);
+  showToast(`Référence : ${r?.name||id}`, 'ok');
+}
+</script>
+</body>
+</html>

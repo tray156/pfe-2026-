@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALIS-HMI — Paramètres</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  .page-body { height:calc(100vh - 56px - 43px); overflow-y:auto; }
+  .params-wrap { padding:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .param-group { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; transition:background .3s; }
+  .param-group-title { font-family:'Rajdhani'; font-size:13px; font-weight:700; letter-spacing:2px; color:var(--accent); margin-bottom:14px; text-transform:uppercase; display:flex; align-items:center; gap:8px; }
+  .param-input-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .param-input-label { font-size:12px; color:var(--text-dim); }
+  .param-input-wrap { position:relative; width:140px; }
+  .param-input { background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'Share Tech Mono'; font-size:14px; padding:6px 36px 6px 10px; border-radius:4px; width:100%; text-align:right; outline:none; transition:border-color .2s; }
+  .param-input:focus { border-color:var(--accent); }
+  .param-input:disabled { opacity:.4; cursor:not-allowed; }
+  .input-kbd-btn { position:absolute; right:5px; top:50%; transform:translateY(-50%); width:22px; height:22px; border-radius:3px; background:rgba(128,128,128,0.1); border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+  .input-kbd-btn:hover { border-color:var(--accent); background:rgba(0,180,216,0.15); }
+
+  /* Programme selector */
+  .prog-selector-settings { display:flex; gap:8px; margin-bottom:14px; }
+  .prog-btn-s { flex:1; padding:10px 8px; border-radius:7px; font-family:'Rajdhani'; font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all .25s; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .prog-btn-s .prog-label { font-size:20px; font-weight:700; line-height:1; }
+  .prog-btn-s .prog-sub { font-size:9px; letter-spacing:1px; text-transform:uppercase; opacity:.7; }
+  .prog-btn-s.active-m1 { background:rgba(0,180,216,0.12); border-color:var(--accent); }
+  .prog-btn-s.active-m1 .prog-label { color:var(--accent); }
+  .prog-btn-s.active-m2 { background:rgba(255,152,0,0.12); border-color:var(--orange); }
+  .prog-btn-s.active-m2 .prog-label { color:var(--orange); }
+
+  /* M2 ref list */
+  .m2-ref-settings { display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; margin-bottom:8px; }
+  .m2-ref-s-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:5px; border:1px solid var(--border); background:var(--bg); cursor:pointer; transition:all .2s; }
+  .m2-ref-s-item:hover { border-color:var(--orange); }
+  .m2-ref-s-item.selected { border-color:var(--orange); background:rgba(255,152,0,0.08); }
+  .m2-ref-s-name { font-family:'Share Tech Mono'; font-size:12px; color:var(--text); flex:1; }
+  .m2-ref-s-info { font-size:10px; color:var(--text-dim); }
+
+  /* Cable count */
+  .cable-count-row { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:12px; }
+  .cc-s-btn { width:28px; height:28px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); font-family:'Share Tech Mono'; font-size:12px; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; }
+  .cc-s-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .cc-s-btn.selected { background:rgba(0,180,216,.15); border-color:var(--accent); color:var(--accent); font-weight:700; }
+
+  /* Cable type per cable */
+  .cable-type-grid { display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; }
+  .ct-row { display:flex; align-items:center; gap:8px; }
+  .ct-num { font-family:'Share Tech Mono'; font-size:12px; color:var(--text-dim); width:24px; flex-shrink:0; }
+  .ct-select { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:'Exo 2'; font-size:11px; padding:5px 8px; border-radius:4px; outline:none; }
+  .ct-select:focus { border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="machine-name">
+    <svg class="icon icon-lg icon-accent"><use href="#icon-zap"/></svg>
+    SALIS-HMI
+  </div>
+  <div class="top-info">
+    <div class="top-item"><div class="top-label">ID</div><div class="top-value" id="topUID" style="color:var(--accent);font-weight:700;">—</div></div>
+    <div class="top-item"><div class="top-label">Nom</div><div class="top-value" id="topUser">—</div></div>
+    <div class="top-item"><div class="top-label">Département</div><div class="top-value" id="topDept">—</div></div>
+    <div class="top-item"><div class="top-label">Session</div><div class="top-value" id="sessionTimer">00:00</div></div>
+    <div class="top-item"><div class="top-label">Heure</div><div class="top-value" id="clock">--:--:--</div></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg class="icon icon-moon icon-accent"><use href="#icon-moon"/></svg>
+      <svg class="icon icon-sun  icon-accent"><use href="#icon-sun"/></svg>
+    </button>
+    <div class="role-badge" id="roleBadge" style="display:none;"><div class="role-dot"></div><span id="roleText">—</span></div>
+    <button class="btn-logout" onclick="doLogout()" id="logoutBtn" style="display:none;">
+      <svg class="icon icon-sm"><use href="#icon-power"/></svg> DÉCO
+    </button>
+  </div>
+</div>
+
+<!-- NAVTABS -->
+<nav class="navtabs">
+  <a class="navtab" href="dashboard.html"><svg class="icon icon-sm"><use href="#icon-dashboard"/></svg> ACCUEIL</a>
+  <a class="navtab" href="tests.html"><svg class="icon icon-sm"><use href="#icon-test"/></svg> TESTS</a>
+  <a class="navtab" href="history.html"><svg class="icon icon-sm"><use href="#icon-chart"/></svg> HISTORIQUE</a>
+  <a class="navtab active" href="settings.html"><svg class="icon icon-sm"><use href="#icon-settings"/></svg> PARAMÈTRES</a>
+  <a class="navtab" href="admin.html" id="tab-admin" style="display:none;"><svg class="icon icon-sm"><use href="#icon-user"/></svg> ADMIN</a>
+  <a class="navtab" href="history.html#audit"><svg class="icon icon-sm"><use href="#icon-audit"/></svg> JOURNAL</a>
+</nav>
+
+<div class="page-body">
+  <div id="params-denied" class="denied-banner" style="display:none;">
+    <svg class="icon" style="stroke:var(--red);vertical-align:middle;margin-right:8px;"><use href="#icon-lock"/></svg>
+    Accès refusé — Niveau <strong>Ingénieur</strong> ou <strong>Admin</strong> requis.
+  </div>
+
+  <div class="params-wrap" id="params-content">
+
+    <!-- ── HV ── -->
+    <div class="param-group">
+      <div class="param-group-title">
+        <svg class="icon icon-sm icon-hv"><use href="#icon-zap"/></svg> Paramètres HV
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Tension (V)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-hv-v" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-hv-v','Tension HV (V)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Temps test (s)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-hv-t" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-hv-t','Temps HV (s)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Seuil courant (µA)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-hv-i" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-hv-i','Seuil courant (µA)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PNEUMATIQUE ── -->
+    <div class="param-group">
+      <div class="param-group-title">
+        <svg class="icon icon-sm" style="stroke:var(--dry)"><use href="#icon-drop"/></svg> Paramètres Pneumatique
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Pression (bar)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-dry-p" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-dry-p','Pression (bar)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Temps stabilisation (s)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-dry-t" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-dry-t','Stabilisation (s)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Seuil ΔP (bar)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-dry-d" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-dry-d','Seuil ΔP (bar)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Seuil Mass Flow (mL/min)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-massflow" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-massflow','Seuil Mass Flow')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PROGRAMME M1/M2 ── -->
+    <div class="param-group">
+      <div class="param-group-title">
+        <svg class="icon icon-sm"><use href="#icon-chip"/></svg> Programme & Références
+      </div>
+
+      <div class="prog-selector-settings">
+        <button class="prog-btn-s" id="btnM1s" onclick="setProgSettings('M1')">
+          <span class="prog-label">M1</span>
+          <span class="prog-sub">1 câble standard</span>
+        </button>
+        <button class="prog-btn-s" id="btnM2s" onclick="setProgSettings('M2')">
+          <span class="prog-label">M2</span>
+          <span class="prog-sub">Multi-référence</span>
+        </button>
+      </div>
+
+      <!-- M1 section -->
+      <div id="m1SettingsSection">
+        <div style="font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Référence M1</div>
+        <div class="param-input-row">
+          <label class="param-input-label">Nom référence</label>
+          <div class="param-input-wrap">
+            <input class="param-input" id="p-ref" type="text" readonly>
+            <button class="input-kbd-btn" onclick="openKbd('p-ref','Référence M1')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;margin-top:12px;">Type de test</div>
+        <select id="p-m1-type" class="param-input" style="width:100%;text-align:left;padding:6px 10px;font-family:'Exo 2';font-size:12px;">
+          <option value="both">Pneumatique + HV</option>
+          <option value="pneumo">Pneumatique seul</option>
+          <option value="hv">HV seul</option>
+        </select>
+      </div>
+
+      <!-- M2 section -->
+      <div id="m2SettingsSection" style="display:none;">
+        <div style="font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Références M2</div>
+        <div class="m2-ref-settings" id="m2RefListSettings"></div>
+        <button class="m2-ref-add" onclick="addM2RefSettings()">
+          <svg class="icon icon-sm"><use href="#icon-plus"/></svg> AJOUTER RÉFÉRENCE
+        </button>
+        <div id="m2EditSection" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-size:10px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <svg class="icon icon-sm icon-orange"><use href="#icon-wrench"/></svg>
+            ÉDITION RÉFÉRENCE SÉLECTIONNÉE
+          </div>
+          <div class="param-input-row">
+            <label class="param-input-label">Nom</label>
+            <div class="param-input-wrap">
+              <input class="param-input" id="p-m2-name" type="text" readonly>
+              <button class="input-kbd-btn" onclick="openKbd('p-m2-name','Nom référence')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Nombre de câbles du faisceau</div>
+          <div class="cable-count-row" id="m2CableCount"></div>
+          <div style="font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;margin-top:10px;">Type de test (pour tout le faisceau)</div>
+          <select id="m2TestType" class="param-input" style="width:100%;text-align:left;padding:8px 10px;font-family:'Exo 2';font-size:12px;margin-bottom:4px;">
+            <option value="both">DRY + HV (séquence complète)</option>
+            <option value="dry">DRY seulement</option>
+            <option value="hv">HV seulement</option>
+          </select>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.6;padding:6px 8px;background:rgba(0,180,216,.04);border-radius:4px;border:1px solid rgba(0,180,216,.1);">
+            Tous les câbles du faisceau passent le même type de test.
+            En mode DRY+HV : si un câble est NOK en DRY, il ne passe pas le HV.
+          </div>
+          <button class="btn-eng" onclick="saveM2Ref()" style="margin-top:10px;background:rgba(255,152,0,.1);border-color:var(--orange);color:var(--orange);">
+            <svg class="icon icon-sm icon-orange"><use href="#icon-save"/></svg> SAUVEGARDER RÉFÉRENCE
+          </button>
+          <button class="btn-eng" onclick="deleteM2Ref()" style="margin-top:6px;background:rgba(255,23,68,.08);border-color:rgba(255,23,68,.4);color:var(--red);">
+            <svg class="icon icon-sm icon-red"><use href="#icon-trash"/></svg> SUPPRIMER RÉFÉRENCE
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SYSTÈME ── -->
+    <div class="param-group">
+      <div class="param-group-title">
+        <svg class="icon icon-sm"><use href="#icon-settings"/></svg> Système
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Temps cycle max (s)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-cycle" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-cycle','Temps cycle max (s)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Auto-print ticket</label>
+        <select class="param-input" id="p-print" style="text-align:left;padding:6px 10px;font-family:'Exo 2';font-size:12px;">
+          <option value="OUI">OUI</option>
+          <option value="NON">NON</option>
+        </select>
+      </div>
+      <div class="param-input-row">
+        <label class="param-input-label">Verrou inactivité (s)</label>
+        <div class="param-input-wrap">
+          <input class="param-input" id="p-autolock" type="text" readonly>
+          <button class="input-kbd-btn" onclick="openKbd('p-autolock','Inactivité (s)')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
+        <button class="btn-eng" onclick="doSaveParams()" style="margin-top:0;background:rgba(0,230,118,0.1);border-color:var(--green);color:var(--green);">
+          <svg class="icon icon-sm icon-green"><use href="#icon-save"/></svg> SAUVEGARDER TOUT
+        </button>
+        <button class="btn-eng" onclick="openChpw()" id="btn-chpw" style="margin-top:0;background:rgba(255,152,0,0.1);border-color:var(--orange);color:var(--orange);">
+          <svg class="icon icon-sm icon-orange"><use href="#icon-key"/></svg> CHANGER MOT DE PASSE
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Autolock bar -->
+<div class="autolock-bar"><div class="autolock-progress" id="autolockBar" style="width:100%;"></div></div>
+
+<!-- Change password overlay -->
+<div class="chpw-overlay hidden" id="chpwOverlay">
+  <div class="chpw-box">
+    <div class="chpw-title"><svg class="icon"><use href="#icon-key"/></svg> MODIFIER MOT DE PASSE</div>
+    <div class="chpw-field"><label>Mot de passe actuel</label>
+      <div class="chpw-input-row">
+        <input type="password" id="chpwCurrent" autocomplete="off" placeholder="••••••••">
+        <button class="kbd-open-btn" onclick="VKbd.open(document.getElementById('chpwCurrent'),'Mot de passe actuel')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+      </div>
+    </div>
+    <div class="chpw-field"><label>Nouveau mot de passe</label>
+      <div class="chpw-input-row">
+        <input type="password" id="chpwNew" placeholder="Min. 8 caractères" oninput="checkStrength(this.value)" autocomplete="off">
+        <button class="kbd-open-btn" onclick="VKbd.open(document.getElementById('chpwNew'),'Nouveau',v=>checkStrength(v))"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+      </div>
+      <div class="chpw-strength" id="chpwStrengthBar"></div>
+    </div>
+    <div class="chpw-field"><label>Confirmer</label>
+      <div class="chpw-input-row">
+        <input type="password" id="chpwConfirm" autocomplete="off" placeholder="Répéter">
+        <button class="kbd-open-btn" onclick="VKbd.open(document.getElementById('chpwConfirm'),'Confirmer')"><svg class="icon icon-sm"><use href="#icon-keyboard"/></svg></button>
+      </div>
+    </div>
+    <div class="chpw-msg" id="chpwMsg"></div>
+    <div class="chpw-row">
+      <button class="chpw-cancel" onclick="closeChpw()">ANNULER</button>
+      <button class="chpw-confirm" onclick="doChangePassword()">✔ CONFIRMER</button>
+    </div>
+  </div>
+</div>
+
+<div class="vkbd-overlay hidden" id="vkbdOverlay"></div>
+<div class="toast" id="toast"></div>
+
+<script src="../js/api.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  startClock(); startSessionTimer(); renderTopbar();
+  startAutolock(() => { clearSession(); window.location.href = 'login.html'; });
+  const ta = document.getElementById('tab-admin');
+  if(ta) ta.style.display = SESSION.role==='admin'?'inline-flex':'none';
+  enforceAccess();
+  loadFormValues();
+  setProgSettings(PROGRAMME.mode, false);
+});
+
+function doLogout() {
+  addAudit(SESSION.user, SESSION.role, 'DÉCONNEXION', 'Session fermée', 'audit-logout');
+  stopAutolock(); clearSession(); window.location.href = 'login.html';
+}
+
+/* ── Keyboard ────────────────────────────────────────── */
+function openKbd(inputId, label) {
+  const inp = document.getElementById(inputId);
+  if (!inp || inp.disabled) return;
+  const numFields = ['p-hv-v','p-hv-t','p-hv-i','p-dry-p','p-dry-t','p-dry-d','p-massflow','p-nb','p-cycle','p-autolock'];
+  VKbd.open(inp, label);
+  if (numFields.includes(inputId)) VKbd.setMode('num');
+}
+
+/* ── Access control ──────────────────────────────────── */
+function enforceAccess() {
+  const ok = can('canModifyParams');
+  document.getElementById('params-denied').style.display   = ok ? 'none'  : 'block';
+  document.getElementById('params-content').style.opacity  = ok ? '1'     : '0.45';
+  document.querySelectorAll('#params-content .param-input').forEach(i => i.disabled = !ok);
+  document.querySelectorAll('#params-content .input-kbd-btn').forEach(b => b.disabled = !ok);
+  const btnChpw = document.getElementById('btn-chpw');
+  if (btnChpw) btnChpw.style.display = can('canChangePassword') ? 'flex' : 'none';
+}
+
+/* ── Load values ─────────────────────────────────────── */
+function loadFormValues() {
+  document.getElementById('p-hv-v').value    = MACHINE_PARAMS.hv_voltage;
+  document.getElementById('p-hv-t').value    = MACHINE_PARAMS.hv_time;
+  document.getElementById('p-hv-i').value    = MACHINE_PARAMS.hv_current;
+  document.getElementById('p-dry-p').value   = MACHINE_PARAMS.dry_pres;
+  document.getElementById('p-dry-t').value   = MACHINE_PARAMS.dry_stab;
+  document.getElementById('p-dry-d').value   = MACHINE_PARAMS.dry_delta;
+  document.getElementById('p-massflow').value= MACHINE_PARAMS.massflow_seuil || '5.0';
+  document.getElementById('p-ref').value     = MACHINE_PARAMS.ref;
+  document.getElementById('p-cycle').value   = MACHINE_PARAMS.cycle_max;
+  document.getElementById('p-autolock').value= MACHINE_PARAMS.autolock_timeout || '120';
+  const pr = document.getElementById('p-print');
+  [...pr.options].forEach(o => { if(o.value === MACHINE_PARAMS.auto_print) o.selected=true; });
+  const mt = document.getElementById('p-m1-type');
+  if(mt) mt.value = MACHINE_PARAMS.m1_test_type || 'both';
+}
+
+/* ── Programme M1/M2 ─────────────────────────────────── */
+function setProgSettings(mode, save=true) {
+  PROGRAMME.mode = mode;
+  if(save) saveProg(PROGRAMME);
+  document.getElementById('btnM1s').className = 'prog-btn-s'+(mode==='M1'?' active-m1':'');
+  document.getElementById('btnM2s').className = 'prog-btn-s'+(mode==='M2'?' active-m2':'');
+  document.getElementById('m1SettingsSection').style.display = mode==='M1'?'block':'none';
+  document.getElementById('m2SettingsSection').style.display = mode==='M2'?'block':'none';
+  if(mode==='M2') renderM2RefList();
+}
+
+/* ── M2 ref list ─────────────────────────────────────── */
+let selectedM2Key = null;
+
+function renderM2RefList() {
+  const list = document.getElementById('m2RefListSettings');
+  list.innerHTML = PROGRAMME.m2_refs.map(r => `
+    <div class="m2-ref-s-item ${r.id===selectedM2Key?'selected':''}" onclick="selectM2ForEdit('${r.id}')">
+      <div style="flex:1;">
+        <div class="m2-ref-s-name">${r.name}</div>
+        <div class="m2-ref-s-info">${r.nb_cables||1} câble(s) — HV:${r.hv_voltage}V / ${r.dry_pres}bar</div>
+      </div>
+      <svg class="icon icon-sm" style="stroke:${r.id===PROGRAMME.m2_selected?'var(--green)':'var(--border)'}"><use href="#icon-check"/></svg>
+    </div>
+  `).join('');
+}
+
+function selectM2ForEdit(id) {
+  selectedM2Key = id;
+  PROGRAMME.m2_selected = id;
+  saveProg(PROGRAMME);
+  renderM2RefList();
+  const ref = PROGRAMME.m2_refs.find(r=>r.id===id);
+  if(!ref) return;
+  document.getElementById('m2EditSection').style.display = 'block';
+  document.getElementById('p-m2-name').value = ref.name;
+  // Set test type select
+  const sel = document.getElementById('m2TestType');
+  if(sel) sel.value = ref.test_type || 'both';
+  renderM2CableCount(ref);
+}
+
+function renderM2CableCount(ref) {
+  const nb = ref.nb_cables || 1;
+  document.getElementById('m2CableCount').innerHTML =
+    Array.from({length:10},(_,i)=>i+1).map(n=>
+      `<button class="cc-s-btn ${n===nb?'selected':''}" onclick="setM2CableCount(${n})">${n}</button>`
+    ).join('');
+}
+
+function setM2CableCount(n) {
+  const ref = PROGRAMME.m2_refs.find(r=>r.id===selectedM2Key);
+  if(!ref) return;
+  ref.nb_cables = n;
+  renderM2CableCount(ref);
+}
+
+function saveM2Ref() {
+  const ref = PROGRAMME.m2_refs.find(r=>r.id===selectedM2Key);
+  if(!ref) return;
+  const nameVal = document.getElementById('p-m2-name').value.trim().toUpperCase();
+  const typeVal = document.getElementById('m2TestType').value;
+  if(nameVal) ref.name = nameVal;
+  ref.test_type = typeVal;
+  saveProg(PROGRAMME);
+  renderM2RefList();
+  showToast(`Référence ${ref.name} sauvegardée`, 'ok');
+  addAudit(SESSION.user, SESSION.role, 'MODIF. RÉFÉRENCE M2',
+    `${ref.name} — ${ref.nb_cables}c — ${typeVal}`, 'audit-param');
+}
+
+function deleteM2Ref() {
+  if(PROGRAMME.m2_refs.length <= 1) { showToast('Impossible — minimum 1 référence', 'error'); return; }
+  const ref = PROGRAMME.m2_refs.find(r=>r.id===selectedM2Key);
+  if(!ref) return;
+  if(!confirm(`Supprimer la référence ${ref.name} ?`)) return;
+  PROGRAMME.m2_refs = PROGRAMME.m2_refs.filter(r=>r.id!==selectedM2Key);
+  PROGRAMME.m2_selected = PROGRAMME.m2_refs[0].id;
+  selectedM2Key = null;
+  saveProg(PROGRAMME);
+  document.getElementById('m2EditSection').style.display = 'none';
+  renderM2RefList();
+  showToast(`Référence supprimée`, 'warn');
+}
+
+function addM2RefSettings() {
+  const tempInput = { value:'' };
+  VKbd.open(tempInput, 'Nom nouvelle référence', (name) => {
+    if(!name||name.trim().length<2){ showToast('Nom invalide','error'); return; }
+    const newRef = {
+      id: 'REF-'+String(Date.now()).slice(-4),
+      name: name.trim().toUpperCase(),
+      nb_cables: 1, cable_types: ['both'],
+      hv_voltage: MACHINE_PARAMS.hv_voltage, hv_time:   MACHINE_PARAMS.hv_time,
+      hv_current: MACHINE_PARAMS.hv_current, dry_pres:  MACHINE_PARAMS.dry_pres,
+      dry_stab:   MACHINE_PARAMS.dry_stab,   dry_delta: MACHINE_PARAMS.dry_delta
+    };
+    PROGRAMME.m2_refs.push(newRef);
+    saveProg(PROGRAMME);
+    selectM2ForEdit(newRef.id);
+    showToast(`Référence ${newRef.name} créée`, 'ok');
+    addAudit(SESSION.user, SESSION.role, 'NOUVELLE RÉFÉRENCE M2', newRef.name, 'audit-param');
+  });
+}
+
+/* ── Save all params ─────────────────────────────────── */
+function doSaveParams() {
+  if (!can('canModifyParams')) { showToast('Permission insuffisante', 'error'); return; }
+
+  MACHINE_PARAMS.hv_voltage        = parseFloat(document.getElementById('p-hv-v').value)    || MACHINE_PARAMS.hv_voltage;
+  MACHINE_PARAMS.hv_time           = parseFloat(document.getElementById('p-hv-t').value)    || MACHINE_PARAMS.hv_time;
+  MACHINE_PARAMS.hv_current        = parseFloat(document.getElementById('p-hv-i').value)    || MACHINE_PARAMS.hv_current;
+  MACHINE_PARAMS.dry_pres          = parseFloat(document.getElementById('p-dry-p').value)   || MACHINE_PARAMS.dry_pres;
+  MACHINE_PARAMS.dry_stab          = parseFloat(document.getElementById('p-dry-t').value)   || MACHINE_PARAMS.dry_stab;
+  MACHINE_PARAMS.dry_delta         = parseFloat(document.getElementById('p-dry-d').value)   || MACHINE_PARAMS.dry_delta;
+  MACHINE_PARAMS.massflow_seuil    = parseFloat(document.getElementById('p-massflow').value)|| 5.0;
+  MACHINE_PARAMS.ref               = document.getElementById('p-ref').value                 || MACHINE_PARAMS.ref;
+  MACHINE_PARAMS.cycle_max         = parseInt(document.getElementById('p-cycle').value)     || MACHINE_PARAMS.cycle_max;
+  MACHINE_PARAMS.auto_print        = document.getElementById('p-print').value;
+  MACHINE_PARAMS.autolock_timeout  = parseInt(document.getElementById('p-autolock').value)  || 120;
+  MACHINE_PARAMS.m1_test_type      = document.getElementById('p-m1-type').value;
+
+  saveParams(MACHINE_PARAMS);
+  saveProg(PROGRAMME);
+
+  const detail = `HV:${MACHINE_PARAMS.hv_voltage}V / Dry:${MACHINE_PARAMS.dry_pres}bar / Flow:${MACHINE_PARAMS.massflow_seuil}mL/min`;
+  addAudit(SESSION.user, SESSION.role, 'MODIF. PARAMÈTRES', detail, 'audit-param');
+  showToast('Paramètres sauvegardés', 'ok');
+}
+</script>
+</body>
+</html>
